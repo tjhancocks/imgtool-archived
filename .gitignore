@@ -1,0 +1,12 @@
+# unrequired macOS files
+.DS_Store
+
+# build intermediates
+*.o
+imgtool
+
+# test files
+*.img
+
+# emacs temporaries
+*~
