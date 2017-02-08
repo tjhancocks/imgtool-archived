@@ -178,8 +178,19 @@ void shell_statement_resolve(shell_t shell, shell_statement_t stmt)
     
     for (int i = 0; i < stmt->argc; ++i) {
         
-        // TODO: Implement this substitution!
-        continue;
+        // If the argument is a variable then swap out the entire argument.
+        // If the variable is not found then leave the symbol in place.
+        if (stmt->argv[i][0] == '$') {
+            const char *symbol = stmt->argv[i];
+            shell_variable_t var = shell_find_variable(shell, symbol + 1);
+            
+            if (!var) {
+                continue;
+            }
+            
+            shell_variable_get(var, (char **)&stmt->argv[i]);
+            free((void *)symbol);
+        }
     }
 }
 
