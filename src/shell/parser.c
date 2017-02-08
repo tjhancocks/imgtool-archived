@@ -37,6 +37,15 @@ void shell_parse(const char *input, int *argc, char ***argv)
     if (strlen(input) == 0) {
         return;
     }
+    
+    // Remove leading/trailing whitespace from the input.
+    while (isspace(*input)) {
+        input++;
+    }
+    char *input_tail = (char *)input + strlen(input) - 1;
+    while (isspace(*input_tail)) {
+        *input_tail-- = '\0';
+    }
 
     *argv = malloc(sizeof(void *) * 64);
     memset(*argv, 0, sizeof(void *) * 64);
