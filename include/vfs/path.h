@@ -23,8 +23,16 @@
 #ifndef VFS_PATH
 #define VFS_PATH
 
-#include <stdio.h>
+struct path_node;
+struct path_node {
+    struct path_node *parent;
+    struct path_node *child;
+    const char *name;
+};
+typedef struct path_node * path_node_t;
 
 void vfs_parse_filename(const char *file, char **name, char **ext);
+
+path_node_t vfs_construct_path(const char *path);
 
 #endif

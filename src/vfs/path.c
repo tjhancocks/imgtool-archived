@@ -51,3 +51,17 @@ void vfs_parse_filename(const char *file, char **name, char **ext)
         *ptr++ = *file++;
     }
 }
+
+
+path_node_t vfs_construct_path(const char *path)
+{
+    assert(path);
+
+    // If the path is representing the root of the file system we need to return
+    // NULL.
+    if (strcmp(path, "/") == 0) {
+        return NULL;
+    }
+    
+    return NULL
+}
