@@ -32,6 +32,7 @@ This tool is far from done. A foundation has been laid, but the rest of the thin
 - [ ] Concrete FAT16 driver
 - [ ] Concrete FAT32 driver
 - [ ] Concrete EXT2 Driver
+- [ ] `grub install` functionality for GRUB Legacy.
 
 ###License
 Copyright (c) 2017 Tom Hancocks

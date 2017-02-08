@@ -114,7 +114,8 @@ int main(int argc, const char * argv[])
     
     // Create the virtual file system and launch the shell.
     vfs_t vfs = vfs_init(dev, filesystem);
-    shell_init(vfs);
+    shell_t shell = shell_init(vfs);
+    shell_do(shell);
     
     // Close the virtual file system. This should clean up everything that is
     // still in memory.

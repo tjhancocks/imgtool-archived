@@ -20,37 +20,54 @@
   SOFTWARE.
 */
 
-#ifndef SHELL
-#define SHELL
+#include <stdlib.h>
+#include <assert.h>
+#include <string.h>
 
-#include <stdint.h>
-
-#include "vfs.h"
+#include "shell.h"
 #include "shell_scripting.h"
 
-struct shell {
-    // File System
-    vfs_t filesystem;
+shell_command_t shell_command_create(const char *name, shell_command_imp_t imp)
+{
+    shell_command_t cmd = calloc(1, sizeof(*cmd));
+    cmd->name = name;
+    cmd->impl = imp;
+    return cmd;
+}
 
-    // Commands
-    shell_command_t first_command;
-    
-    // User Prompts
-    uint32_t buffer_size;
-    
-    // Import Buffer
-    uint32_t import_buffer_size;
-    uint8_t *import_buffer;
-    
-    // Flags
-    uint8_t running:1;
-    uint8_t reserved:7;
-};
-typedef struct shell * shell_t;
+void shell_command_destroy(shell_command_t cmd)
+{
+    if (cmd) {
+        shell_command_destroy(cmd->next);
+    }
+    free(cmd);
+}
 
-shell_t shell_init(vfs_t vfs);
-void shell_do(shell_t shell);
 
-void shell_add_command(shell_t shell, shell_command_t command);
+shell_command_t shell_command_for(shell_t shell, const char *name)
+{
+    assert(shell);
+    shell_command_t cmd = shell->first_command;
+    while (cmd) {
+        if (strcmp(cmd->name, name) == 0) {
+            return cmd;
+        }
+        cmd = cmd->next;
+    }
+    return NULL;
+}
 
-#endif
+void shell_execute(shell_t shell, int argc, const char *argv[])
+{
+    assert(shell);
+    assert(argc > 0);
+    assert(argv);
+
+    shell_command_t cmd = shell_command_for(shell, argv[0]);
+    if (!cmd) {
+        fprintf(stderr, "Unrecognised command: %s\n", argv[0]);
+        return;
+    }
+
+    cmd->impl(shell, argc, argv);
+}

@@ -20,37 +20,23 @@
   SOFTWARE.
 */
 
-#ifndef SHELL
-#define SHELL
+#ifndef SHELL_SCRIPTING
+#define SHELL_SCRIPTING
 
-#include <stdint.h>
+struct shell;
+typedef void(*shell_command_imp_t)(struct shell *, int, const char *[]);
 
-#include "vfs.h"
-#include "shell_scripting.h"
-
-struct shell {
-    // File System
-    vfs_t filesystem;
-
-    // Commands
-    shell_command_t first_command;
-    
-    // User Prompts
-    uint32_t buffer_size;
-    
-    // Import Buffer
-    uint32_t import_buffer_size;
-    uint8_t *import_buffer;
-    
-    // Flags
-    uint8_t running:1;
-    uint8_t reserved:7;
+struct shell_command;
+struct shell_command {
+    const char *name;
+    shell_command_imp_t impl;
+    struct shell_command *next;
 };
-typedef struct shell * shell_t;
+typedef struct shell_command *shell_command_t;
 
-shell_t shell_init(vfs_t vfs);
-void shell_do(shell_t shell);
+shell_command_t shell_command_create(const char *name, shell_command_imp_t imp);
+void shell_command_destroy(shell_command_t cmd);
 
-void shell_add_command(shell_t shell, shell_command_t command);
+void shell_execute(struct shell *shell, int argc, const char *argv[]);
 
 #endif
