@@ -39,6 +39,9 @@
        __typeof__ (b) _b = (b); \
        _a > _b ? _a : _b; })
 
+#define FAT12_EOF       0xFFF
+#define FAT12_FREE      0x000
+
 
 // prototypes...
 const char *fat12_type_name();
@@ -235,6 +238,10 @@ const char *fat12_construct_short_name(const char *name)
             short_name[i] -= ('a' - 'A');
         }
     }
+
+    // Clean up
+    free(file);
+    free(ext);
 
     // Return the short name back to the caller.
     return short_name;
@@ -471,11 +478,11 @@ uint16_t fat12_fat_table_entry(vfs_t fs, uint32_t entry)
 
     // Convert the entry to an absolute offset in the FAT. We need to ensure
     // we're on a multiple of 3 boundary and rounding _down_.
-    uint32_t off = (entry * 3) / 2;
-
-    // Entries are twinned together in 3 byte groups. Are we looking at
+    // Entries are also twinned together in 3 byte groups. Are we looking at
     // the first entry or the second one?
     uint8_t which = entry % 2;
+    entry -= (entry % 2);
+    uint32_t off = (entry * 3) / 2;
 
     // Read the entry
     if (which == 0) {
@@ -496,11 +503,12 @@ void fat12_fat_table_set_entry(vfs_t fs, uint32_t entry, uint16_t value)
 
     // Convert the entry to an absolute offset in the FAT. We need to ensure
     // we're on a multiple of 3 boundary and rounding _down_.
-    uint32_t off = (entry * 3) / 2;
-
-    // Entries are twinned together in 3 byte groups. Are we looking at
+    // Entries are also twinned together in 3 byte groups. Are we looking at
     // the first entry or the second one?
     uint8_t which = entry % 2;
+    entry -= (entry % 2);
+    uint32_t off = (entry * 3) / 2;
+
 
     // Write the entry
     if (which == 0) {
@@ -530,7 +538,7 @@ uint16_t fat12_first_available_cluster(vfs_t fs)
     for (uint16_t i = 2; i < cluster_count; ++i) {
         // Get the cluster value
         uint32_t entry = fat12_fat_table_entry(fs, i);
-        if (entry == 0x0000) {
+        if (entry == FAT12_FREE) {
             return i;
         }
     }
@@ -651,7 +659,7 @@ void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n)
             // cluster.
             uint32_t new_cluster = fat12_first_available_cluster(fs);
             fat12_fat_table_set_entry(fs, cluster, new_cluster);
-            fat12_fat_table_set_entry(fs, new_cluster, 0xFFF);
+            fat12_fat_table_set_entry(fs, new_cluster, FAT12_EOF);
         }
 
         // The next check is to see if we are outside of the new cluster chain
@@ -659,10 +667,10 @@ void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n)
             uint32_t tmp = fat12_next_cluster(fs, cluster);
 
             if (chain_i == new_clusters - 1) {
-                fat12_fat_table_set_entry(fs, cluster, 0xFFF);
+                fat12_fat_table_set_entry(fs, cluster, FAT12_EOF);
             }
             else {
-                fat12_fat_table_set_entry(fs, cluster, 0x000);
+                fat12_fat_table_set_entry(fs, cluster, FAT12_FREE);
             }
             cluster = tmp;
             chain_i++;
@@ -706,7 +714,7 @@ void fat12_create_node(vfs_node_t node, const char *name, uint8_t directory)
     uint16_t first_cluster = fat12_first_available_cluster(node->fs);
 
     // We now need to set that to indicate an end of file.
-    fat12_fat_table_set_entry(node->fs, first_cluster, 0xFFF);
+    fat12_fat_table_set_entry(node->fs, first_cluster, FAT12_EOF);
 
     // Construct the node accordingly.
     free((void *)node->name);
