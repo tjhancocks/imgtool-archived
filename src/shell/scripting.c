@@ -26,6 +26,10 @@
 
 #include <shell/shell.h>
 #include <shell/scripting.h>
+#include <shell/parser.h>
+
+
+#pragma mark - Shell Commands
 
 shell_command_t shell_command_create(const char *name, shell_command_imp_t imp)
 {
@@ -57,17 +61,65 @@ shell_command_t shell_command_for(shell_t shell, const char *name)
     return NULL;
 }
 
-void shell_execute(shell_t shell, int argc, const char *argv[])
+
+#pragma mark - Shell Statements
+
+shell_statement_t shell_statement_create(const char *raw_statement)
+{
+    assert(raw_statement);
+    
+    // Create a new statement from the raw statement provided.
+    shell_statement_t stmt = calloc(1, sizeof(*stmt));
+    shell_parse(raw_statement, &stmt->argc, (char ***)&stmt->argv);
+    
+    return stmt;
+}
+
+void shell_statement_destroy(shell_statement_t stmt)
+{
+    if (stmt) {
+        free(stmt->argv);
+    }
+    free(stmt);
+}
+
+
+#pragma mark - Shell Script Execution
+
 {
     assert(shell);
-    assert(argc > 0);
-    assert(argv);
+void shell_statement_resolve(shell_t shell, shell_statement_t stmt)
+{
+    assert(shell);
+    assert(stmt);
+    
+    // To resolve a statement we need to check each argument to see if
+    // it contains a variable. If it does then it needs to be substituted for
+    // its actual value.
+    
+    for (int i = 0; i < stmt->argc; ++i) {
+        
+        // TODO: Implement this substitution!
+        continue;
+    }
+}
 
-    shell_command_t cmd = shell_command_for(shell, argv[0]);
-    if (!cmd) {
-        fprintf(stderr, "Unrecognised command: %s\n", argv[0]);
+void shell_statement_execute(shell_t shell, shell_statement_t stmt)
+{
+    assert(shell);
+    assert(stmt);
+    
+    // We're going to execute the statement. The first argument is the command.
+    if (stmt->argc == 0) {
+        fprintf(stderr, "Malformed statement. Skipping.\n");
         return;
     }
-
-    cmd->impl(shell, argc, argv);
+    
+    // Search for the command and then execute it.
+    shell_command_t cmd = shell_command_for(shell, stmt->argv[0]);
+    if (!cmd) {
+        fprintf(stderr, "Unrecognised command: %s\n", stmt->argv[0]);
+        return;
+    }
+    cmd->impl(shell, stmt->argc, stmt->argv);
 }

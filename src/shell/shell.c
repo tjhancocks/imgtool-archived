@@ -71,18 +71,17 @@ void shell_do(shell_t shell)
         strcpy(prompt + strlen(prompt), " # ");
         shell_get_input(prompt, buffer, main_shell->buffer_size);
 
-        // Parse the input out into a list of arguments. First argument is the
-        // command name.
-        int argc = 0;
-        char **argv = NULL;
-        shell_parse(buffer, &argc, &argv);
-
-        // Execute the arguments.
-        shell_execute(main_shell, argc, (const char **)argv);
+        // Construct a statement from the input and then execute the statement.
+        shell_statement_t stmt = shell_statement_create(buffer);
+        if (stmt) {
+            shell_statement_resolve(main_shell, stmt);
+            shell_statement_execute(main_shell, stmt);
+            shell_statement_destroy(stmt);
+            stmt = NULL;
+        }
 
         // Clean up the prompt and wrap up this command ready for the next one.
         free(prompt);
-        free(argv);
         printf("\n");
     }
 }

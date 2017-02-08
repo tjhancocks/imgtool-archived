@@ -34,9 +34,21 @@ struct shell_command {
 };
 typedef struct shell_command *shell_command_t;
 
+struct shell_statement;
+struct shell_statement {
+    int argc;
+    const char **argv;
+    struct shell_statement *next;
+};
+typedef struct shell_statement *shell_statement_t;
+
 shell_command_t shell_command_create(const char *name, shell_command_imp_t imp);
 void shell_command_destroy(shell_command_t cmd);
 
-void shell_execute(struct shell *shell, int argc, const char *argv[]);
+shell_statement_t shell_statement_create(const char *raw_statement);
+void shell_statement_destroy(shell_statement_t statement);
+
+void shell_statement_resolve(struct shell *shell, shell_statement_t stmt);
+void shell_statement_execute(struct shell *shell, shell_statement_t stmt);
 
 #endif
