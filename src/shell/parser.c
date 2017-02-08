@@ -46,6 +46,12 @@ void shell_parse(const char *input, int *argc, char ***argv)
     while (isspace(*input_tail)) {
         *input_tail-- = '\0';
     }
+    
+    // A leading '#' means the statement is a comment and should be ignored.
+    if (*input == '#') {
+        return;
+    }
+    
 
     *argv = malloc(sizeof(void *) * 64);
     memset(*argv, 0, sizeof(void *) * 64);

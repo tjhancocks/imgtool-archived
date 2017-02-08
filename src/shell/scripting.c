@@ -73,6 +73,13 @@ shell_statement_t shell_statement_create(const char *raw_statement)
     shell_statement_t stmt = calloc(1, sizeof(*stmt));
     shell_parse(raw_statement, &stmt->argc, (char ***)&stmt->argv);
     
+    // If the statement contained no arguments then it is most likely either
+    // empty or a comment. Tear down the statement structure and return NULL.
+    if (!stmt->argv) {
+        free(stmt);
+        stmt = NULL;
+    }
+    
     return stmt;
 }
 
