@@ -34,6 +34,9 @@
 
 #define SHELL_BUFFER_LEN 1024
 
+
+#pragma mark - Main Shell
+
 static shell_t main_shell = NULL;
 
 shell_t shell_init(vfs_t vfs)
@@ -86,6 +89,9 @@ void shell_do(shell_t shell)
     }
 }
 
+
+#pragma mark - Shell Commands
+
 void shell_add_command(shell_t shell, shell_command_t command)
 {
     assert(shell);
@@ -95,3 +101,36 @@ void shell_add_command(shell_t shell, shell_command_t command)
     command->next = tmp;
     shell->first_command = command;
 }
+
+
+#pragma mark - Shell Variables
+
+void shell_add_variable(shell_t shell, shell_variable_t variable)
+{
+    assert(shell);
+    assert(variable);
+    
+    // We're going to add the variable to the head of the variable list,
+    // shifting everything along by one.
+    variable->next = shell->first_variable;
+    if (shell->first_variable) {
+        shell->first_variable->prev = variable;
+    }
+    shell->first_variable = variable;
+}
+
+shell_variable_t shell_find_variable(shell_t shell, const char *symbol)
+{
+    assert(shell);
+    assert(symbol);
+    
+    shell_variable_t variable = shell->first_variable;
+    while (variable) {
+        if (strcmp(variable->symbol, symbol) == 0) {
+            break;
+        }
+        variable = variable->next;
+    }
+    return variable;
+}
+

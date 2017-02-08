@@ -27,6 +27,7 @@
 
 #include <vfs/vfs.h>
 #include <shell/scripting.h>
+#include <shell/variable.h>
 
 struct shell {
     // File System
@@ -34,6 +35,9 @@ struct shell {
 
     // Commands
     shell_command_t first_command;
+    
+    // Variables
+    shell_variable_t first_variable;
     
     // User Prompts
     uint32_t buffer_size;
@@ -52,5 +56,8 @@ shell_t shell_init(vfs_t vfs);
 void shell_do(shell_t shell);
 
 void shell_add_command(shell_t shell, shell_command_t command);
+
+void shell_add_variable(shell_t shell, shell_variable_t variable);
+shell_variable_t shell_find_variable(shell_t shell, const char *symbol);
 
 #endif
