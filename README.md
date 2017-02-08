@@ -2,9 +2,11 @@
 
 ![Basic VFS Support](https://img.shields.io/badge/VFS-Basic-green.svg)
 ![Partial FAT12 Support](https://img.shields.io/badge/FAT12-Partial-yellow.svg)
-![Partial FAT16 Support](https://img.shields.io/badge/FAT16-None-red.svg)
-![Partial FAT32 Support](https://img.shields.io/badge/FAT32-None-red.svg)
-![Partial EXT2 Support](https://img.shields.io/badge/ext2-None-red.svg)
+![No FAT16 Support](https://img.shields.io/badge/FAT16-None-red.svg)
+![No FAT32 Support](https://img.shields.io/badge/FAT32-None-red.svg)
+![No VFAT Support](https://img.shields.io/badge/VFAT-None-red.svg)
+![No ExFAT Support](https://img.shields.io/badge/ExFAT-None-red.svg)
+![No EXT2 Support](https://img.shields.io/badge/ext2-None-red.svg)
 
 A simple tool for working with disk images and performing changes to them in a sandboxed environment.
 
