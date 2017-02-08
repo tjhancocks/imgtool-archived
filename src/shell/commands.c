@@ -33,6 +33,7 @@
 #include <shell/import.h>
 #include <shell/write.h>
 #include <shell/mkdir.h>
+#include <shell/ls.h>
 
 void shell_register_commands(shell_t shell)
 {
@@ -46,5 +47,6 @@ void shell_register_commands(shell_t shell)
     shell_add_command(shell, shell_command_create("import", shell_import));
     shell_add_command(shell, shell_command_create("write", shell_write));
     shell_add_command(shell, shell_command_create("mkdir", shell_mkdir));
+    shell_add_command(shell, shell_command_create("ls", shell_ls));
 }
 
