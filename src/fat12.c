@@ -39,6 +39,13 @@
        __typeof__ (b) _b = (b); \
        _a > _b ? _a : _b; })
 
+#define FAT12_ARCHIVE   0x20
+#define FAT12_DIRECTORY 0x10
+#define FAT12_VOLUMEID  0x08
+#define FAT12_SYSTEM    0x04
+#define FAT12_HIDDEN    0x02
+#define FAT12_READONLY  0x01
+
 #define FAT12_EOF       0xFFF
 #define FAT12_FREE      0x000
 
@@ -49,6 +56,7 @@ void fat12_format_device(vfs_t fs, const char *name, uint8_t *bootcode);
 void *fat12_mount(vfs_t fs);
 void fat12_unmount(vfs_t fs);
 void fat12_touch(vfs_t fs, const char *name);
+void fat12_make_directory(vfs_t fs, const char *name);
 void fat12_change_directory(vfs_t fs, void *);
 void *fat12_list_directory(vfs_t fs);
 void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n);
@@ -199,7 +207,7 @@ uint32_t fat12_data_start(fat12_bpb_t bpb)
 
 #pragma mark - File Names
 
-const char *fat12_construct_short_name(const char *name)
+const char *fat12_construct_short_name(const char *name, int is_dir)
 {
     char *short_name = calloc(11, sizeof(*short_name));
 
@@ -211,26 +219,42 @@ const char *fat12_construct_short_name(const char *name)
     vfs_parse_filename(name, &file, &ext);
 
     // Determine what needs to be done with the main body.
-    uint32_t file_len = (uint32_t)strlen(file);
-    if (file_len > 8) {
-        memcpy(short_name, file, 7);
-        short_name[7] = '~';
-    }
-    else if (file_len < 8) {
-        memset(short_name, ' ', 8);
-        memcpy(short_name, file, file_len);
+    if (is_dir) {
+        uint32_t file_len = (uint32_t)strlen(file);
+        if (file_len > 11) {
+            memcpy(short_name, file, 10);
+            short_name[10] = '~';
+        }
+        else if (file_len < 11) {
+            memset(short_name, ' ', 11);
+            memcpy(short_name, file, file_len);
+        }
+        else {
+            memcpy(short_name, file, file_len);
+        }
     }
     else {
-        memcpy(short_name, file, file_len);
-    }
+        uint32_t file_len = (uint32_t)strlen(file);
+        if (file_len > 8) {
+            memcpy(short_name, file, 7);
+            short_name[7] = '~';
+        }
+        else if (file_len < 8) {
+            memset(short_name, ' ', 8);
+            memcpy(short_name, file, file_len);
+        }
+        else {
+            memcpy(short_name, file, file_len);
+        }
 
-    // Handle the extension. This should be 3 characters long. If it isn't
-    // throw an exception for now.
-    if (strlen(ext) != 3) {
-        fprintf(stderr, "File extensions must be 3 characters long!\n");
-        exit(1);
+        // Handle the extension. This should be 3 characters long. If it isn't
+        // throw an exception for now.
+        if (strlen(ext) != 3) {
+            fprintf(stderr, "File extensions must be 3 characters long!\n");
+            exit(1);
+        }
+        memcpy(short_name + 8, ext, 3);
     }
-    memcpy(short_name + 8, ext, 3);
 
     // Uppercase everything
     for (uint8_t i = 0; i < 11; ++i) {
@@ -333,6 +357,10 @@ void fat12_load_directory(vfs_t fs, uint32_t first_sector, uint32_t count)
 
         // Construct a new node from the SFN.
         vfs_node_t node = vfs_node_init(fs, sfn);
+        node->is_directory = sfn->attribute & FAT12_DIRECTORY;
+        node->is_system = sfn->attribute & FAT12_SYSTEM;
+        node->is_hidden = sfn->attribute & FAT12_HIDDEN;
+        node->is_readonly = sfn->attribute & FAT12_READONLY;
 
         // Determine the state of the node.
         if (raw_sfn->name[0] == 0xE5) {
@@ -378,9 +406,10 @@ void fat12_flush_directory(vfs_t fs)
         if (node->is_dirty) {
             // TODO: Form the name correctly
             fat12_sfn_t sfn = node->assoc_info;
-            const char *short_name = fat12_construct_short_name(node->name);
-            memcpy(sfn->name, short_name, 11);
-            free((void *)short_name);
+            const char *name = fat12_construct_short_name(node->name,
+                                                          node->is_directory);
+            memcpy(sfn->name, name, 11);
+            free((void *)name);
 
             // Set the attributes of the file accordingly
             sfn->attribute |= (node->is_directory ? 0x10 : 0x00);
@@ -703,6 +732,27 @@ void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n)
     fat12_flush_directory(fs);
 }
 
+uint16_t fat12_acquire_blank_cluster_chain(vfs_t fs, uint32_t n)
+{
+    assert(fs);
+    assert(n > 0);
+
+    // Acquire the first cluster node, and decrement the amount.
+    uint16_t first_cluster = fat12_first_available_cluster(fs);
+    fat12_fat_table_set_entry(fs, first_cluster, FAT12_EOF);
+    --n;
+
+    uint16_t last_cluster = first_cluster;
+    while (n--) {
+        uint16_t cluster = fat12_first_available_cluster(fs);
+        fat12_fat_table_set_entry(fs, last_cluster, cluster);
+        fat12_fat_table_set_entry(fs, cluster, FAT12_EOF);
+        last_cluster = cluster;
+    }
+
+    return first_cluster;
+}
+
 
 #pragma mark - File Creation
 
@@ -710,8 +760,18 @@ void fat12_create_node(vfs_node_t node, const char *name, uint8_t directory)
 {
     assert(node);
 
+    fat12_t fat = node->fs->assoc_info;
+
     // We're going to find the first available cluster for the file.
-    uint16_t first_cluster = fat12_first_available_cluster(node->fs);
+    uint16_t first_cluster = FAT12_EOF;
+    if (directory) {
+        uint32_t n = (fat12_root_directory_size(fat->bpb)
+                      / fat->bpb->sectors_per_cluster);
+        first_cluster = fat12_acquire_blank_cluster_chain(node->fs, n);
+    }
+    else {
+        first_cluster = fat12_acquire_blank_cluster_chain(node->fs, 1);
+    }
 
     // We now need to set that to indicate an end of file.
     fat12_fat_table_set_entry(node->fs, first_cluster, FAT12_EOF);
@@ -726,6 +786,7 @@ void fat12_create_node(vfs_node_t node, const char *name, uint8_t directory)
     // Update the SFN
     fat12_sfn_t sfn = node->assoc_info;
     sfn->first_cluster = first_cluster;
+    sfn->attribute |= (node->is_directory ? FAT12_DIRECTORY : 0);
 }
 
 uint8_t fat12_is_node_available(vfs_node_t node)
@@ -748,7 +809,29 @@ void fat12_touch(vfs_t fs, const char *name)
             fat12_create_node(node, name, 0);
             break;
         }
+        node = node->next;
+    }
 
+    // Flush the directory
+    fat12_flush_fat_table(fs);
+    fat12_flush_directory(fs);
+}
+
+void fat12_make_directory(vfs_t fs, const char *name)
+{
+    assert(fs);
+    assert(name);
+
+    fat12_t fat = fs->assoc_info;
+
+    // Find the first available entry in the root directory.
+    vfs_node_t node = fat->working_directory->first;
+    while (node) {
+        // If the node is available then touch this one.
+        if (fat12_is_node_available(node)) {
+            fat12_create_node(node, name, 1);
+            break;
+        }
         node = node->next;
     }
 
