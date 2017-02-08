@@ -27,7 +27,7 @@ C-OBJS := $(addsuffix .o, $(basename $(C-SRCS)))
 all: imgtool
 
 clean:
-	@rm -vf src/*.o
+	@rm -vf src/**/*.o
 	@rm -vf imgtool
 
 install: imgtool
@@ -39,4 +39,4 @@ imgtool: $(C-OBJS)
 	$(CC) -o $@ $^
 
 %.o: %.c
-	$(CC) -o $@ -c $<
+	$(CC) -I./include -o $@ -c $<

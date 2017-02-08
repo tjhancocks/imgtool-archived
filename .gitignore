@@ -1,5 +1,6 @@
 # unrequired macOS files
 .DS_Store
+*.xcodeproj
 
 # build intermediates
 *.o

@@ -22,10 +22,10 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include "vdevice.h"
-#include "fat12.h"
-#include "vfs.h"
-#include "shell.h"
+#include <device/virtual.h>
+#include <fat/fat12.h>
+#include <vfs/vfs.h>
+#include <shell/shell.h>
 
 // Example input from command line:
 //
