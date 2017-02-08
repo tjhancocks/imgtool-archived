@@ -407,10 +407,6 @@ void fat12_flush_directory(vfs_t fs)
         if (node->is_dirty) {
             // TODO: Form the name correctly
             fat12_sfn_t sfn = node->assoc_info;
-            const char *name = fat12_construct_short_name(node->name,
-                                                          node->is_directory);
-            memcpy(sfn->name, name, 11);
-            free((void *)name);
 
             // Set the attributes of the file accordingly
             sfn->attribute |= (node->is_directory ? 0x10 : 0x00);
@@ -779,15 +775,20 @@ void fat12_create_node(vfs_node_t node, const char *name, uint8_t directory)
 
     // Construct the node accordingly.
     free((void *)node->name);
-    node->name = name;
+    node->name = fat12_construct_short_name(name, directory);
     node->is_dirty = 1;
     node->is_directory = directory;
     node->state = vfs_node_used;
 
     // Update the SFN
     fat12_sfn_t sfn = node->assoc_info;
+    memcpy(sfn->name, node->name, 11);
     sfn->first_cluster = first_cluster;
     sfn->attribute |= (node->is_directory ? FAT12_DIRECTORY : 0);
+
+    // Finally convert back from SFN to a regular name
+    free((void *)node->name);
+    node->name = fat12_construct_standard_name(sfn->name);
 }
 
 void fat12_create_directory(vfs_node_t node, const char *name)
