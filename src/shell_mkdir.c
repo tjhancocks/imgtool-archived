@@ -22,29 +22,18 @@
 
 #include <assert.h>
 
-#include "shell_commands.h"
-#include "shell.h"
-
-#include "shell_exit.h"
-#include "shell_echo.h"
-#include "shell_format.h"
-#include "shell_mount.h"
-#include "shell_touch.h"
-#include "shell_import.h"
-#include "shell_write.h"
 #include "shell_mkdir.h"
+#include "shell.h"
+#include "vfs.h"
 
-void shell_register_commands(shell_t shell)
+void shell_mkdir(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
-    shell_add_command(shell, shell_command_create("exit", shell_exit));
-    shell_add_command(shell, shell_command_create("echo", shell_echo));
-    shell_add_command(shell, shell_command_create("format", shell_format));
-    shell_add_command(shell, shell_command_create("mount", shell_mount));
-    shell_add_command(shell, shell_command_create("unmount", shell_unmount));
-    shell_add_command(shell, shell_command_create("touch", shell_touch));
-    shell_add_command(shell, shell_command_create("import", shell_import));
-    shell_add_command(shell, shell_command_create("write", shell_write));
-    shell_add_command(shell, shell_command_create("mkdir", shell_mkdir));
-}
 
+    if (argc != 2) {
+        fprintf(stderr, "Expected a single argument for the file name.\n");
+        return;
+    }
+
+    vfs_mkdir(shell->filesystem, argv[1]);
+}

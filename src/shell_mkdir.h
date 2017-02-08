@@ -20,31 +20,11 @@
  SOFTWARE.
  */
 
-#include <assert.h>
+#ifndef SHELL_MKDIR
+#define SHELL_MKDIR
 
-#include "shell_commands.h"
-#include "shell.h"
+struct shell;
 
-#include "shell_exit.h"
-#include "shell_echo.h"
-#include "shell_format.h"
-#include "shell_mount.h"
-#include "shell_touch.h"
-#include "shell_import.h"
-#include "shell_write.h"
-#include "shell_mkdir.h"
+void shell_mkdir(struct shell *, int, const char *[]);
 
-void shell_register_commands(shell_t shell)
-{
-    assert(shell);
-    shell_add_command(shell, shell_command_create("exit", shell_exit));
-    shell_add_command(shell, shell_command_create("echo", shell_echo));
-    shell_add_command(shell, shell_command_create("format", shell_format));
-    shell_add_command(shell, shell_command_create("mount", shell_mount));
-    shell_add_command(shell, shell_command_create("unmount", shell_unmount));
-    shell_add_command(shell, shell_command_create("touch", shell_touch));
-    shell_add_command(shell, shell_command_create("import", shell_import));
-    shell_add_command(shell, shell_command_create("write", shell_write));
-    shell_add_command(shell, shell_command_create("mkdir", shell_mkdir));
-}
-
+#endif
