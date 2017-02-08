@@ -49,6 +49,7 @@ const char *vfs_pwd(vfs_t vfs);
 struct vfs_directory *vfs_list_directory(vfs_t vfs);
 
 void vfs_touch(vfs_t vfs, const char *name);
+void vfs_mkdir(vfs_t vfs, const char *name);
 
 void vfs_write(vfs_t vfs, const char *name, uint8_t *bytes, uint32_t size);
 

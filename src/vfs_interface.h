@@ -36,6 +36,7 @@ struct vfs_interface {
     void *(*list_directory)(struct vfs *fs);
     void (*touch)(struct vfs *fs, const char *name);
     void (*write)(struct vfs *fs, const char *name, uint8_t *bytes, uint32_t n);
+    void (*mkdir)(struct vfs *fs, const char *name);
 };
 
 typedef struct vfs_interface * vfs_interface_t;

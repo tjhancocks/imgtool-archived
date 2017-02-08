@@ -73,6 +73,7 @@ vfs_interface_t fat12_init()
     fat12->change_directory = fat12_change_directory;
     fat12->list_directory = fat12_list_directory;
     fat12->write = fat12_file_write;
+    fat12->mkdir = fat12_make_directory;
     return fat12;
 }
 

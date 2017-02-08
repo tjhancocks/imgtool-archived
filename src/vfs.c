@@ -106,6 +106,12 @@ void vfs_touch(vfs_t vfs, const char *name)
     vfs->filesystem_interface->touch(vfs, name);
 }
 
+void vfs_mkdir(vfs_t vfs, const char *name)
+{
+    assert(vfs);
+    vfs->filesystem_interface->mkdir(vfs, name);
+}
+
 void vfs_write(vfs_t vfs, const char *name, uint8_t *bytes, uint32_t size)
 {
     vfs_touch(vfs, name);
