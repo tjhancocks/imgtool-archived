@@ -70,6 +70,7 @@ typedef struct fat12_sfn * fat12_sfn_t;
 
 
 struct fat12_directory_info {
+    uint16_t first_cluster;
     uint32_t starting_sector;
     uint32_t sector_count;
 };

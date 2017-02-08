@@ -790,6 +790,59 @@ void fat12_create_node(vfs_node_t node, const char *name, uint8_t directory)
     sfn->attribute |= (node->is_directory ? FAT12_DIRECTORY : 0);
 }
 
+void fat12_create_directory(vfs_node_t node, const char *name)
+{
+    assert(node);
+
+    fat12_t fat = node->fs->assoc_info;
+
+    // The first task is to create the actual node required for the directory
+    // to be present in the file system.
+    fat12_create_node(node, name, 1);
+    fat12_sfn_t node_sfn = node->assoc_info;
+    vfs_directory_t parent = fat->working_directory;
+    fat12_directory_info_t parent_info = parent ? parent->assoc_info : NULL;
+
+    // We can now get the first sector of the directory and prepare to add
+    // both the . and .. entries to it. These are required in the file system
+    // to allow traversal of the file system.
+    fat12_sfn_t current_dir = calloc(1, sizeof(*current_dir));
+    fat12_sfn_t parent_dir = calloc(1, sizeof(*parent_dir));
+
+    // The current_directory should point to the new directory represented
+    // by node.
+    memset(current_dir->name, ' ', 11);
+    current_dir->name[0] = '.';
+    current_dir->attribute = FAT12_DIRECTORY;
+    current_dir->first_cluster = node_sfn->first_cluster;
+
+    // The parent_dir should point to the current working directory
+    // of the FAT12 implementation.
+    memset(parent_dir->name, ' ', 11);
+    parent_dir->name[0] = '.';
+    parent_dir->name[1] = '.';
+    parent_dir->attribute = FAT12_DIRECTORY;
+    parent_dir->first_cluster = parent_info ? parent_info->first_cluster : 0;
+
+    // Now build an entire cluster for this, and write the two entries into it
+    uint8_t *data = calloc(fat->bpb->sectors_per_cluster,
+                           fat->bpb->bytes_per_sector);
+    memcpy(data, current_dir, sizeof(*current_dir));
+    memcpy(data + sizeof(*current_dir), parent_dir, sizeof(*parent_dir));
+
+    // Finally write the cluster out to the device
+    uint32_t first_sector = fat12_sector_for_cluster(node->fs,
+                                                     node_sfn->first_cluster);
+    uint32_t sector_count = fat->bpb->sectors_per_cluster;
+
+    device_write_sectors(node->fs->device, first_sector, sector_count, data);
+
+    // Clean up
+    free(current_dir);
+    free(parent_dir);
+    free(data);
+}
+
 uint8_t fat12_is_node_available(vfs_node_t node)
 {
     return node->state == vfs_node_unused || node->state == vfs_node_available;
@@ -830,7 +883,7 @@ void fat12_make_directory(vfs_t fs, const char *name)
     while (node) {
         // If the node is available then touch this one.
         if (fat12_is_node_available(node)) {
-            fat12_create_node(node, name, 1);
+            fat12_create_directory(node, name);
             break;
         }
         node = node->next;
