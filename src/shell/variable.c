@@ -106,5 +106,5 @@ void shell_variable_get(shell_variable_t var, char **value)
     }
     
     // Copy the value out
-    strlcpy(*value, var->value, value_size - 1);
+    strlcpy(*value, var->value, value_size);
 }
