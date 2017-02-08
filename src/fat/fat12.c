@@ -810,7 +810,7 @@ void fat12_create_node(vfs_node_t node, const char *name, uint8_t directory)
 
     // Finally convert back from SFN to a regular name
     free((void *)node->name);
-    node->name = fat12_construct_standard_name(sfn->name);
+    node->name = fat12_construct_standard_name((const char *)sfn->name);
 }
 
 void fat12_create_directory(vfs_node_t node, const char *name)
