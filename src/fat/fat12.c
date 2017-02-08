@@ -729,6 +729,26 @@ void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n)
     fat12_flush_directory(fs);
 }
 
+void fat12_clear_cluster(vfs_t fs, uint32_t cluster)
+{
+    assert(fs);
+
+    fat12_t fat = fs->assoc_info;
+
+    // Create a blank cluster that can be written to the device.
+    uint8_t *data = calloc(fat->bpb->sectors_per_cluster,
+                           fat->bpb->bytes_per_sector);
+
+    // Write out to the cluster
+    uint32_t first_sector = fat12_sector_for_cluster(fs, cluster);
+    uint32_t sector_count = fat->bpb->sectors_per_cluster;
+
+    device_write_sectors(fs->device, first_sector, sector_count, data);
+
+    // Clean up
+    free(data);
+}
+
 uint16_t fat12_acquire_blank_cluster_chain(vfs_t fs, uint32_t n)
 {
     assert(fs);
@@ -736,12 +756,14 @@ uint16_t fat12_acquire_blank_cluster_chain(vfs_t fs, uint32_t n)
 
     // Acquire the first cluster node, and decrement the amount.
     uint16_t first_cluster = fat12_first_available_cluster(fs);
+    fat12_clear_cluster(fs, first_cluster);
     fat12_fat_table_set_entry(fs, first_cluster, FAT12_EOF);
     --n;
 
     uint16_t last_cluster = first_cluster;
     while (n--) {
         uint16_t cluster = fat12_first_available_cluster(fs);
+        fat12_clear_cluster(fs, cluster);
         fat12_fat_table_set_entry(fs, last_cluster, cluster);
         fat12_fat_table_set_entry(fs, cluster, FAT12_EOF);
         last_cluster = cluster;
