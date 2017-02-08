@@ -34,6 +34,7 @@
 #include <shell/write.h>
 #include <shell/mkdir.h>
 #include <shell/ls.h>
+#include <shell/set.h>
 
 void shell_register_commands(shell_t shell)
 {
@@ -48,5 +49,7 @@ void shell_register_commands(shell_t shell)
     shell_add_command(shell, shell_command_create("write", shell_write));
     shell_add_command(shell, shell_command_create("mkdir", shell_mkdir));
     shell_add_command(shell, shell_command_create("ls", shell_ls));
+    shell_add_command(shell, shell_command_create("set", shell_set));
+    shell_add_command(shell, shell_command_create("setu", shell_setu));
 }
 
