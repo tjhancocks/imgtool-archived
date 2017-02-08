@@ -42,12 +42,23 @@ struct shell_statement {
 };
 typedef struct shell_statement *shell_statement_t;
 
+struct shell_script {
+    shell_statement_t first;
+    shell_statement_t last;
+};
+typedef struct shell_script *shell_script_t;
+
+
 shell_command_t shell_command_create(const char *name, shell_command_imp_t imp);
 void shell_command_destroy(shell_command_t cmd);
 
 shell_statement_t shell_statement_create(const char *raw_statement);
 void shell_statement_destroy(shell_statement_t statement);
 
+shell_script_t shell_script_open(const char *path);
+void shell_script_destroy(shell_script_t script);
+
+void shell_script_execute(struct shell *shell, shell_script_t script);
 void shell_statement_resolve(struct shell *shell, shell_statement_t stmt);
 void shell_statement_execute(struct shell *shell, shell_statement_t stmt);
 
