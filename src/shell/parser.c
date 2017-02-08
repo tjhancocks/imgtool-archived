@@ -61,20 +61,24 @@ void shell_parse(const char *input, int *argc, char ***argv)
         if ((!escaped && !in_string && isspace(c)) || c == EOF || c == '\0') {
             // get the token
             length = i - start;
-            char *token = calloc(length + 1, sizeof(*token));
-            strncpy(token, input + start, length);
-
-            // Strip quotes
-            if (length >= 2 && token[0] == '"') {
-                token++;
+            
+            // If the token length is 0 then ignore.
+            if (length > 0) {
+                char *token = calloc(length + 1, sizeof(*token));
+                strncpy(token, input + start, length);
+                
+                // Strip quotes
+                if (length >= 2 && token[0] == '"') {
+                    token++;
+                }
+                if (length >= 2 && token[length - 2] == '"') {
+                    token[length - 2] = '\0';
+                }
+                
+                // Store the argument appropriately
+                *(*argv + *argc) = token;
+                *argc = *argc + 1;
             }
-            if (length >= 2 && token[length - 2] == '"') {
-                token[length - 2] = '\0';
-            }
-
-            // Store the argument appropriately
-            *(*argv + *argc) = token;
-            *argc = *argc + 1;
 
             // reset for next
             start = i + 1;
