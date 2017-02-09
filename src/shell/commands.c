@@ -35,6 +35,7 @@
 #include <shell/mkdir.h>
 #include <shell/ls.h>
 #include <shell/set.h>
+#include <shell/attach.h>
 
 void shell_register_commands(shell_t shell)
 {
@@ -51,5 +52,7 @@ void shell_register_commands(shell_t shell)
     shell_add_command(shell, shell_command_create("ls", shell_ls));
     shell_add_command(shell, shell_command_create("set", shell_set));
     shell_add_command(shell, shell_command_create("setu", shell_setu));
+    shell_add_command(shell, shell_command_create("attach", shell_attach));
+    shell_add_command(shell, shell_command_create("detach", shell_detach));
 }
 
