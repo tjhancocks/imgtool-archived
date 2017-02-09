@@ -100,11 +100,7 @@ void shell_variable_get(shell_variable_t var, char **value)
     
     uint32_t value_size = (uint32_t)strlen(var->value) + 1;
     
-    if (!*value) {
-        // Need to allocate something for the value.
-        *value = calloc(value_size, sizeof(**value));
-    }
-    
-    // Copy the value out
+    // Need to allocate something for the value and copy it out.
+    *value = calloc(value_size, sizeof(**value));
     strlcpy(*value, var->value, value_size);
 }
