@@ -29,7 +29,7 @@ struct vfs;
 
 struct vfs_interface {
     const char *(*type_name)();
-    void (*format_device)(struct vfs *fs, const char *name, uint8_t *bootcode);
+    void (*format_device)(vdevice_t dev, const char *name, uint8_t *bootcode);
     void *(*mount_filesystem)(struct vfs *fs);
     void (*unmount_filesystem)(struct vfs *fs);
     void (*change_directory)(struct vfs *fs, void *);

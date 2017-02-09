@@ -40,7 +40,6 @@ typedef struct vfs * vfs_t;
 vfs_t vfs_init(vdevice_t dev, vfs_interface_t inteface);
 void vfs_destroy(vfs_t vfs);
 
-int vfs_format_device(vfs_t vfs, const char *label);
 void vfs_mount(vfs_t vfs);
 void vfs_unmount(vfs_t vfs);
 

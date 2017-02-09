@@ -47,19 +47,6 @@ void vfs_destroy(vfs_t vfs)
     free(vfs);
 }
 
-int vfs_format_device(vfs_t vfs, const char *label)
-{
-    assert(vfs);
-    
-    if (vfs->assoc_info) {
-        fprintf(stderr, "Unable to format device. Still mounted.\n");
-        return 0;
-    }
-    
-    vfs->filesystem_interface->format_device(vfs, label, NULL);
-    return 1;
-}
-
 void vfs_mount(vfs_t vfs)
 {
     assert(vfs);
