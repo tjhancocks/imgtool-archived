@@ -25,45 +25,51 @@
 #include <assert.h>
 #include <device/virtual.h>
 
-
-vdevice_t device_init(const char *restrict path)
+vdevice_t device_create(const char *restrict path)
 {
-    FILE *f = fopen(path, "rb+");
-    if (!f) {
-        fprintf(stderr, "Failed to open device file: %s\n", path);
-        return NULL;
-    }
-
     vdevice_t dev = calloc(1, sizeof(*dev));
-    dev->handle = f;
-    dev->path = calloc(strlen(path)+1, sizeof(*dev->path));
+
+    uint32_t len = (uint32_t)strlen(path);
+    dev->path = calloc(len+1, sizeof(*dev->path));
+    memcpy((void *)dev->path, path, len);
+
+    dev->handle = fopen(dev->path, "rb+");
+
     dev->sector_size = 512;
+
     return dev;
 }
 
-vdevice_t device_init_blank(const char *restrict path, uint16_t bs, uint32_t n)
+
+void device_init(vdevice_t dev, uint16_t bps, uint32_t count)
 {
-    FILE *f = fopen(path, "wb+");
-    if (!f) {
-        fprintf(stderr, "Failed to create device file: %s\n", path);
-        return NULL;
+    assert(dev);
+
+    if (dev->handle) {
+        fclose(dev->handle);
+        dev->handle = NULL;
     }
 
-    vdevice_t dev = calloc(1, sizeof(*dev));
-    dev->handle = f;
-    dev->path = calloc(strlen(path)+1, sizeof(*dev->path));
-    dev->sector_size = bs;
+    dev->sector_size = bps;
+    dev->handle = fopen(dev->path, "wb+");
+    if (!dev->handle) {
+        fprintf(stderr, "Failed to open disk for initialisation\n");
+        return;
+    }
 
-    // write zeros out to the file. create a blank sector.
     uint8_t *sector = calloc(dev->sector_size, sizeof(*sector));
-    for (uint32_t i = 0; i < n; ++i) {
+    for (uint32_t i = 0; i < count; ++i) {
         fwrite(sector, sizeof(*sector), dev->sector_size, dev->handle);
     }
     fflush(dev->handle);
     free(sector);
-
-    return dev;
 }
+
+uint8_t device_is_inited(vdevice_t dev)
+{
+    return (dev && dev->handle != NULL);
+}
+
 
 void device_destroy(vdevice_t device)
 {

@@ -33,9 +33,11 @@ struct vdev {
 
 typedef struct vdev * vdevice_t;
 
-vdevice_t device_init(const char *restrict path);
-vdevice_t device_init_blank(const char *restrict path, uint16_t bs, uint32_t n);
+vdevice_t device_create(const char *restrict path);
 void device_destroy(vdevice_t device);
+
+uint8_t device_is_inited(vdevice_t dev);
+void device_init(vdevice_t dev, uint16_t bps, uint32_t count);
 
 uint32_t device_total_sectors(vdevice_t device);
 
