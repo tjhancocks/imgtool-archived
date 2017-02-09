@@ -39,7 +39,9 @@ struct vfs_interface {
     void (*create_file)(struct vfs *fs,
                         const char *filename,
                         enum vfs_node_attributes attributes);
-    void (*create_dir)(struct vfs *fs, const char *name);
+    void (*create_dir)(struct vfs *fs,
+                       const char *name,
+                       enum vfs_node_attributes a);
     void (*write)(struct vfs *fs, const char *name, uint8_t *bytes, uint32_t n);
 };
 

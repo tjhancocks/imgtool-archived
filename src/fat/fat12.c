@@ -75,7 +75,7 @@ void *fat12_list_directory(vfs_t fs);
 void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n);
 
 void fat12_create_file(vfs_t, const char *, enum vfs_node_attributes);
-void fat12_create_dir(vfs_t fs, const char *name);
+void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
 
 
 #pragma mark - VFS Interface Creation
@@ -976,11 +976,16 @@ void fat12_create_file_node(vfs_node_t node,
     node->name = fat12_construct_standard_name_from_sfn(sfn_name);
 }
 
-void fat12_create_directory_node(vfs_node_t node, const char *filename)
+void fat12_create_directory_node(vfs_node_t node,
+                                 const char *filename,
+                                 enum vfs_node_attributes attributes)
 {
     assert(node);
 
     fat12_t fat = node->fs->assoc_info;
+    
+    // Add in the directory attribute.
+    attributes |= vfs_node_directory_attribute;
     
     // Calculate in bytes how much space is required for a directory.
     uint32_t size = ((fat12_root_directory_size(fat->bpb)
@@ -988,7 +993,7 @@ void fat12_create_directory_node(vfs_node_t node, const char *filename)
                      * fat->bpb->bytes_per_sector);
     
     // Construct the actual node for the directory.
-    fat12_create_file_node(node, filename, size, vfs_node_directory_attribute);
+    fat12_create_file_node(node, filename, size, attributes);
     fat12_sfn_t sfn = node->assoc_info;
     node->size = sfn->size = 0;
     
@@ -1025,6 +1030,9 @@ uint8_t fat12_is_node_available(vfs_node_t node)
     return node->state == vfs_node_unused || node->state == vfs_node_available;
 }
 
+
+#pragma mark - High Level File Support
+
 void fat12_create_file(vfs_t fs, const char *name, enum vfs_node_attributes a)
 {
     assert(fs);
@@ -1048,7 +1056,7 @@ void fat12_create_file(vfs_t fs, const char *name, enum vfs_node_attributes a)
     fat12_flush_directory(fs);
 }
 
-void fat12_create_dir(vfs_t fs, const char *name)
+void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a)
 {
     assert(fs);
     assert(name);
@@ -1060,7 +1068,7 @@ void fat12_create_dir(vfs_t fs, const char *name)
     while (node) {
         // If the node is available then touch this one.
         if (fat12_is_node_available(node)) {
-            fat12_create_directory_node(node, name);
+            fat12_create_directory_node(node, name, a);
             break;
         }
         node = node->next;
