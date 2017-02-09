@@ -84,7 +84,34 @@ uint8_t fat12_test(vdevice_t dev)
         return 0;
     }
 
-    // If we get to the end assume the file system is FAT12.
+    // Read in the boot sector and begin performing checks for the filesystem.
+    // We're looking for a valid FAT12 system.
+    fat12_bpb_t bpb = (fat12_bpb_t)device_read_sector(dev, 0);
+
+    // Check to see if it is actually a FAT12 system...
+    if (bpb->bytes_per_sector == 0) {
+        // This is not a valid FAT file system, so return false.
+        free(bpb);
+        return 0;
+    }
+
+    uint32_t fat_size = bpb->sectors_per_fat;
+    uint32_t root_dir_sectors = (((bpb->directory_entries * 32)
+                                  + (bpb->bytes_per_sector - 1))
+                                 / bpb->bytes_per_sector);
+    uint32_t data_sectors = (bpb->total_sectors_16
+                             - (bpb->reserved_sectors
+                                + (bpb->table_count * fat_size)
+                                + root_dir_sectors));
+    uint32_t total_clusters = data_sectors / bpb->sectors_per_cluster;
+
+    if (total_clusters >= 4085) {
+        // This is not a valid FAT12 file system, so return false.
+        free(bpb);
+        return 0;
+    }
+
+    // At this point we can assume we're FAT12.
     return 1;
 }
 
@@ -97,32 +124,15 @@ const char *fat12_type_name()
 
 void *fat12_mount(vfs_t fs)
 {
+    // Check to see if this is a valid FAT12 file system. Return NULL if it
+    // isn't.
+    if (!fat12_test(fs->device)) {
+        return NULL;
+    }
+
     // Load in the bootsector as this contains the bulk of the information that
     // we will need.
     fat12_bpb_t bpb = (fat12_bpb_t)device_read_sector(fs->device, 0);
-
-    // Check to see if it is actually a FAT12 system...
-    if (bpb->bytes_per_sector == 0) {
-        // This is not a valid FAT file system, so return NULL.
-        free(bpb);
-        return NULL;
-    }
-
-    uint32_t fat_size = bpb->sectors_per_fat;
-    uint32_t root_dir_sectors = (((bpb->directory_entries * 32)
-                                 + (bpb->bytes_per_sector - 1))
-                                 / bpb->bytes_per_sector);
-    uint32_t data_sectors = (bpb->total_sectors_16
-                             - (bpb->reserved_sectors
-                                + (bpb->table_count * fat_size)
-                             + root_dir_sectors));
-    uint32_t total_clusters = data_sectors / bpb->sectors_per_cluster;
-
-    if (total_clusters >= 4085) {
-        // This is not a valid FAT file system, so return NULL.
-        free(bpb);
-        return NULL;
-    }
 
     // Now setup the fat12 structure for this driver.
     fat12_t fat = calloc(1, sizeof(*fat));
