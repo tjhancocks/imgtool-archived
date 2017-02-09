@@ -1,0 +1,26 @@
+# Create a floppy disk image in the temporary items folder called floppy.img
+# Set some variables that will contain the values to work with. These will only
+# be set if no equivalent environment variable was provided.
+setu BPS 512
+setu SECTOR_COUNT 2880
+setu FILE_SYSTEM fat12
+setu DISK_IMAGE "/tmp/floppy.img"
+
+# Attach the disk image and initialise it. We're not concerned if we're
+# replacing it here.
+attach $DISK_IMAGE
+init -b $BPS -c $SECTOR_COUNT
+
+# Now that we have a disk image attached and initialised, format it with the
+# specified file system
+format $FILE_SYSTEM
+
+# Finally we want to mount it and touch a file and directory into it.
+mount
+touch test.txt
+mkdir test
+
+# Finish by unmounting and exiting.
+unmount
+detach
+exit

@@ -20,20 +20,11 @@
  SOFTWARE.
  */
 
-#include <assert.h>
+#ifndef SHELL_INIT
+#define SHELL_INIT
 
-#include <shell/mkdir.h>
-#include <shell/shell.h>
-#include <vfs/vfs.h>
+struct shell;
 
-void shell_mkdir(struct shell *shell, int argc, const char *argv[])
-{
-    assert(shell);
+void shell_init_dev(struct shell *, int, const char *[]);
 
-    if (argc != 2) {
-        fprintf(stderr, "Expected a single argument for the file name.\n");
-        return;
-    }
-
-    vfs_mkdir(shell->device_filesystem, argv[1]);
-}
+#endif

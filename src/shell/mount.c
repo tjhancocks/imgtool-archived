@@ -26,14 +26,14 @@
 #include <shell/shell.h>
 #include <vfs/vfs.h>
 
-void shell_mount(struct shell *shell, int argc, const char *argv[])
+void shell_mount(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
-    vfs_mount(shell->filesystem);
+    shell->device_filesystem = vfs_mount(shell->attached_device);
 }
 
-void shell_unmount(struct shell *shell, int argc, const char *argv[])
+void shell_unmount(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
-    vfs_unmount(shell->filesystem);
+    shell->device_filesystem = vfs_unmount(shell->device_filesystem);
 }

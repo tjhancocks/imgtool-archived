@@ -47,43 +47,41 @@ void vfs_destroy(vfs_t vfs)
     free(vfs);
 }
 
-int vfs_format_device(vfs_t vfs, const char *label)
+vfs_t vfs_mount(vdevice_t dev)
 {
-    assert(vfs);
-    
-    if (vfs->assoc_info) {
-        fprintf(stderr, "Unable to format device. Still mounted.\n");
-        return 0;
-    }
-    
-    vfs->filesystem_interface->format_device(vfs, label, NULL);
-    return 1;
-}
-
-void vfs_mount(vfs_t vfs)
-{
-    assert(vfs);
-    vfs->filesystem_interface->unmount_filesystem(vfs);
-    vfs->assoc_info = vfs->filesystem_interface->mount_filesystem(vfs);
-    
-    if (!vfs->assoc_info) {
-        fprintf(stderr, "Valid filesystem not found\n");
+    if (!dev) {
+        return NULL;
     }
 
-    vfs->filesystem_interface->change_directory(vfs, NULL);
+    // Create an interface for the device. If NULL then we do not have a
+    // readable device attached.
+    vfs_interface_t vfsi = vfs_interface_for_device(dev);
+    if (!vfsi) {
+        return NULL;
+    }
+
+    // Setup the VFS.
+    vfs_t vfs = vfs_init(dev, vfsi);
+
+    // Now mount the file system, and ensure the current directory is root.
+    vfs->assoc_info = vfsi->mount_filesystem(vfs);
+    vfsi->change_directory(vfs, NULL);
+
+    return vfs;
 }
 
-void vfs_unmount(vfs_t vfs)
+vfs_t vfs_unmount(vfs_t vfs)
 {
-    assert(vfs);
-    vfs->filesystem_interface->unmount_filesystem(vfs);
+    if (vfs) {
+        vfs->filesystem_interface->unmount_filesystem(vfs);
+    }
+    return NULL;
 }
 
 
 const char *vfs_pwd(vfs_t vfs)
 {
-    assert(vfs);
-    if (vfs->assoc_info) {
+    if (vfs && vfs->assoc_info) {
         return "/";
     }
     else {

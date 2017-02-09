@@ -35,5 +35,5 @@ void shell_touch(struct shell *shell, int argc, const char *argv[])
         return;
     }
 
-    vfs_touch(shell->filesystem, argv[1]);
+    vfs_touch(shell->device_filesystem, argv[1]);
 }

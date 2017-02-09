@@ -22,18 +22,44 @@
 
 #include <assert.h>
 
-#include <shell/mkdir.h>
+#include <shell/attach.h>
 #include <shell/shell.h>
-#include <vfs/vfs.h>
+#include <device/virtual.h>
 
-void shell_mkdir(struct shell *shell, int argc, const char *argv[])
+void shell_attach(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
 
     if (argc != 2) {
-        fprintf(stderr, "Expected a single argument for the file name.\n");
+        fprintf(stderr, "Usage: attach <disk-image-path>\n");
         return;
     }
 
-    vfs_mkdir(shell->device_filesystem, argv[1]);
+    // Check for a previous attached device. If one is attached then ensure
+    // it isn't mounted.
+    if (shell->attached_device && shell->device_filesystem) {
+        fprintf(stderr, "Currently attached device is mounted. Aborting.\n");
+        return;
+    }
+
+    shell->attached_device = device_create(argv[1]);
+}
+
+void shell_detach(shell_t shell, int argc, const char *argv[])
+{
+    assert(shell);
+
+    // Check for an attached device.
+    if (!shell->attached_device) {
+        return;
+    }
+
+    // If the device is mounted then abort the process.
+    if (shell->device_filesystem) {
+        fprintf(stderr, "Unable to detach mounted device.\n");
+        return;
+    }
+
+    device_destroy(shell->attached_device);
+    shell->attached_device = NULL;
 }

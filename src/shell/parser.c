@@ -37,6 +37,21 @@ void shell_parse(const char *input, int *argc, char ***argv)
     if (strlen(input) == 0) {
         return;
     }
+    
+    // Remove leading/trailing whitespace from the input.
+    while (isspace(*input)) {
+        input++;
+    }
+    char *input_tail = (char *)input + strlen(input) - 1;
+    while (isspace(*input_tail)) {
+        *input_tail-- = '\0';
+    }
+    
+    // A leading '#' means the statement is a comment and should be ignored.
+    if (*input == '#') {
+        return;
+    }
+    
 
     *argv = malloc(sizeof(void *) * 64);
     memset(*argv, 0, sizeof(void *) * 64);
@@ -52,20 +67,24 @@ void shell_parse(const char *input, int *argc, char ***argv)
         if ((!escaped && !in_string && isspace(c)) || c == EOF || c == '\0') {
             // get the token
             length = i - start;
-            char *token = calloc(length + 1, sizeof(*token));
-            strncpy(token, input + start, length);
-
-            // Strip quotes
-            if (length >= 2 && token[0] == '"') {
-                token++;
+            
+            // If the token length is 0 then ignore.
+            if (length > 0) {
+                char *token = calloc(length + 1, sizeof(*token));
+                strncpy(token, input + start, length);
+                
+                // Strip quotes
+                if (length >= 2 && token[0] == '"') {
+                    token++;
+                }
+                if (length >= 2 && token[length - 2] == '"') {
+                    token[length - 2] = '\0';
+                }
+                
+                // Store the argument appropriately
+                *(*argv + *argc) = token;
+                *argc = *argc + 1;
             }
-            if (length >= 2 && token[length - 2] == '"') {
-                token[length - 2] = '\0';
-            }
-
-            // Store the argument appropriately
-            *(*argv + *argc) = token;
-            *argc = *argc + 1;
 
             // reset for next
             start = i + 1;

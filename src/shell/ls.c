@@ -30,7 +30,7 @@
 void shell_ls(shell_t shell, int argc, const char *argv[])
 {
     // Ignore all arguments. We don't need them.
-    vfs_directory_t dir = vfs_list_directory(shell->filesystem);
+    vfs_directory_t dir = vfs_list_directory(shell->device_filesystem);
     if (!dir) {
         fprintf(stderr, "Unable to list directory\n");
         return;

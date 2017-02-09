@@ -28,4 +28,6 @@
 
 vfs_interface_t fat12_init();
 
+uint8_t fat12_test(vdevice_t dev);
+
 #endif

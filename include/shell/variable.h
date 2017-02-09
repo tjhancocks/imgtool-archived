@@ -1,16 +1,16 @@
 /*
  Copyright (c) 2017 Tom Hancocks
-
+ 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
-
+ 
  The above copyright notice and this permission notice shall be included in all
  copies or substantial portions of the Software.
-
+ 
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -20,20 +20,25 @@
  SOFTWARE.
  */
 
-#include <assert.h>
+#ifndef SHELL_VARIABLE
+#define SHELL_VARIABLE
 
-#include <shell/mkdir.h>
-#include <shell/shell.h>
-#include <vfs/vfs.h>
+struct shell;
 
-void shell_mkdir(struct shell *shell, int argc, const char *argv[])
-{
-    assert(shell);
+struct shell_variable;
+struct shell_variable {
+    struct shell *shell;
+    struct shell_variable *prev;
+    struct shell_variable *next;
+    const char *symbol;
+    const char *value;
+};
+typedef struct shell_variable *shell_variable_t;
 
-    if (argc != 2) {
-        fprintf(stderr, "Expected a single argument for the file name.\n");
-        return;
-    }
+shell_variable_t shell_variable_init(const char *symbol, const char *value);
+void shell_variable_destory(shell_variable_t var);
 
-    vfs_mkdir(shell->device_filesystem, argv[1]);
-}
+void shell_variable_set(shell_variable_t var, const char *value);
+void shell_variable_get(shell_variable_t var, char **value);
+
+#endif
