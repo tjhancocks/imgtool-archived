@@ -41,6 +41,7 @@ struct vfs_interface {
 
 typedef struct vfs_interface * vfs_interface_t;
 
+vfs_interface_t vfs_interface_for_device(vdevice_t dev);
 vfs_interface_t vfs_interface_for(const char *type);
 
 vfs_interface_t vfs_interface_init();

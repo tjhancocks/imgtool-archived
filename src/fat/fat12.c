@@ -78,6 +78,17 @@ vfs_interface_t fat12_init()
 }
 
 
+uint8_t fat12_test(vdevice_t dev)
+{
+    if (!dev) {
+        return 0;
+    }
+
+    // If we get to the end assume the file system is FAT12.
+    return 1;
+}
+
+
 // prototype implementations
 const char *fat12_type_name()
 {
