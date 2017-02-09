@@ -39,7 +39,9 @@
 
 static shell_t main_shell = NULL;
 
-shell_t shell_init(vfs_t vfs)
+shell_t shell_init(shell_variable_t vars,
+                   shell_script_t script,
+                   const char *image_path)
 {
     if (main_shell) {
         return main_shell;
@@ -51,7 +53,9 @@ shell_t shell_init(vfs_t vfs)
     // Configure the shell
     main_shell->buffer_size = SHELL_BUFFER_LEN;
     main_shell->running = 1;
-    main_shell->filesystem = vfs;
+    main_shell->script = script;
+    main_shell->image_path = image_path;
+    main_shell->first_variable = vars;
     shell_register_commands(main_shell);
     
     return main_shell;
@@ -60,6 +64,12 @@ shell_t shell_init(vfs_t vfs)
 void shell_do(shell_t shell)
 {
     assert(shell);
+
+    // If there is a script to run then we should run it before launching the
+    // user prompt shell.
+    if (shell->script) {
+        shell_script_execute(shell, shell->script);
+    }
 
     // Start the shell run loop
     char *buffer = malloc(main_shell->buffer_size * sizeof(*buffer));
@@ -87,6 +97,9 @@ void shell_do(shell_t shell)
         free(prompt);
         printf("\n");
     }
+
+    // Clean up
+    free(buffer);
 }
 
 

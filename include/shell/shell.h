@@ -30,14 +30,12 @@
 #include <shell/variable.h>
 
 struct shell {
-    // File System
+    // Runtime
     vfs_t filesystem;
-
-    // Commands
     shell_command_t first_command;
-    
-    // Variables
     shell_variable_t first_variable;
+    shell_script_t script;
+    const char *image_path;
     
     // User Prompts
     uint32_t buffer_size;
@@ -52,7 +50,9 @@ struct shell {
 };
 typedef struct shell * shell_t;
 
-shell_t shell_init(vfs_t vfs);
+shell_t shell_init(shell_variable_t vars,
+                   shell_script_t script,
+                   const char *image_path);
 void shell_do(shell_t shell);
 
 void shell_add_command(shell_t shell, shell_command_t command);
