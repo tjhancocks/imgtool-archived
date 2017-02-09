@@ -9,7 +9,7 @@ setu DISK_IMAGE "/tmp/floppy.img"
 # Attach the disk image and initialise it. We're not concerned if we're
 # replacing it here.
 attach $DISK_IMAGE
-init $BPS $SECTOR_COUNT
+init -b $BPS -c $SECTOR_COUNT
 
 # Now that we have a disk image attached and initialised, format it with the
 # specified file system
