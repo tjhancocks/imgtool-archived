@@ -31,7 +31,8 @@
 
 struct shell {
     // Runtime
-    vfs_t filesystem;
+    vdevice_t attached_device;
+    vfs_t device_filesystem;
     shell_command_t first_command;
     shell_variable_t first_variable;
     shell_script_t script;

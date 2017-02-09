@@ -40,21 +40,21 @@ void shell_format(struct shell *shell, int argc, const char *argv[])
 
     // load in the new file system.
     char *label = "";
-    void *old_fs = shell->filesystem->filesystem_interface;
-    shell->filesystem->filesystem_interface = NULL;
+    void *old_fs = shell->device_filesystem->filesystem_interface;
+    shell->device_filesystem->filesystem_interface = NULL;
 
     if (strcmp(argv[1], "fat12") == 0) {
         label = "UNTITLED   ";
-        shell->filesystem->filesystem_interface = fat12_init();
+        shell->device_filesystem->filesystem_interface = fat12_init();
         vfs_interface_destroy(old_fs);
     }
     else {
         fprintf(stderr, "Unrecognised file system: %s\n", argv[1]);
-        shell->filesystem->filesystem_interface = old_fs;
+        shell->device_filesystem->filesystem_interface = old_fs;
     }
 
     // perform the formatting
-    if (vfs_format_device(shell->filesystem, label)) {
+    if (vfs_format_device(shell->device_filesystem, label)) {
         printf("Disk image was successfully formatted\n");
     }
 }

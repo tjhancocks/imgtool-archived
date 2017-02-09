@@ -35,5 +35,5 @@ void shell_mkdir(struct shell *shell, int argc, const char *argv[])
         return;
     }
 
-    vfs_mkdir(shell->filesystem, argv[1]);
+    vfs_mkdir(shell->device_filesystem, argv[1]);
 }

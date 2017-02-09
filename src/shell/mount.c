@@ -29,11 +29,11 @@
 void shell_mount(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
-    vfs_mount(shell->filesystem);
+    vfs_mount(shell->device_filesystem);
 }
 
 void shell_unmount(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
-    vfs_unmount(shell->filesystem);
+    vfs_unmount(shell->device_filesystem);
 }

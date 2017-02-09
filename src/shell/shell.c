@@ -80,7 +80,7 @@ void shell_do(shell_t shell)
 
         // Display the input prompt and get input from the user
         char *prompt = calloc(255, sizeof(*prompt));
-        strcpy(prompt, vfs_pwd(shell->filesystem));
+        strcpy(prompt, vfs_pwd(shell->device_filesystem));
         strcpy(prompt + strlen(prompt), " # ");
         shell_get_input(prompt, buffer, main_shell->buffer_size);
 

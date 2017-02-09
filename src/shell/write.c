@@ -35,7 +35,7 @@ void shell_write(struct shell *shell, int argc, const char *argv[])
         return;
     }
 
-    vfs_write(shell->filesystem,
+    vfs_write(shell->device_filesystem,
               argv[1],
               shell->import_buffer,
               shell->import_buffer_size);
