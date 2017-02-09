@@ -41,6 +41,8 @@ struct vfs_interface {
 
 typedef struct vfs_interface * vfs_interface_t;
 
+vfs_interface_t vfs_interface_for(const char *type);
+
 vfs_interface_t vfs_interface_init();
 void vfs_interface_destroy(vfs_interface_t interface);
 
