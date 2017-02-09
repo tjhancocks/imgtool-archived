@@ -96,7 +96,9 @@ void shell_statement_destroy(shell_statement_t stmt)
 
 shell_script_t shell_script_open(const char *path)
 {
-    assert(path);
+    if (!path) {
+        return NULL;
+    }
     
     // Open the script and convert each line to a statement.
     FILE *f = fopen(path, "r");
@@ -125,7 +127,7 @@ shell_script_t shell_script_open(const char *path)
         }
         
         if (script->last) {
-            script->last = stmt;
+            script->last->next = stmt;
         }
         script->last = stmt;
         

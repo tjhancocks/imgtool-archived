@@ -82,8 +82,7 @@ void vfs_unmount(vfs_t vfs)
 
 const char *vfs_pwd(vfs_t vfs)
 {
-    assert(vfs);
-    if (vfs->assoc_info) {
+    if (vfs && vfs->assoc_info) {
         return "/";
     }
     else {
