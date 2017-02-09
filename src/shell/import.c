@@ -26,6 +26,7 @@
 
 #include <shell/import.h>
 #include <shell/shell.h>
+#include <common/host.h>
 
 void shell_import(struct shell *shell, int argc, const char *argv[])
 {
@@ -42,10 +43,12 @@ void shell_import(struct shell *shell, int argc, const char *argv[])
     }
 
     // Open the file, get the size and read the data
-    FILE *f = fopen(argv[1], "r");
+    const char *path = host_expand_path(argv[1]);
+    FILE *f = fopen(path, "r");
     fseek(f, 0L, SEEK_END);
     shell->import_buffer_size = (uint32_t)ftell(f);
     fseek(f, 0L, SEEK_SET);
+    free((void *)path);
 
     shell->import_buffer = calloc(shell->import_buffer_size, sizeof(uint8_t));
     fread(shell->import_buffer, sizeof(uint8_t), shell->import_buffer_size, f);
