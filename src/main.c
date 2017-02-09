@@ -24,12 +24,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <wordexp.h>
 #include <stdio.h>
 
 #include <shell/variable.h>
 #include <shell/scripting.h>
 #include <shell/shell.h>
+#include <common/host.h>
 
 
 #pragma mark - Environment Variables
@@ -94,24 +94,6 @@ shell_variable_t construct_variables_from_environment(const char *env[])
 }
 
 
-#pragma mark - Host Environment Helpers
-
-const char *extract_path(const char *path)
-{
-    // Perform expansion on the the path.
-    wordexp_t exp_result;
-    wordexp(path, &exp_result, 0);
-
-    unsigned long len = strlen(exp_result.we_wordv[0]);
-    char *result = calloc(len + 1, sizeof(*result));
-    memcpy(result, exp_result.we_wordv[0], len);
-
-    wordfree(&exp_result);
-
-    return result;
-}
-
-
 #pragma mark - Core
 
 int main(int argc, const char * argv[], const char *env[])
@@ -129,11 +111,11 @@ int main(int argc, const char * argv[], const char *env[])
     while ((c = getopt(argc, (char **)argv, "s:o:")) != -1) {
         switch (c) {
             case 's': // User specified script
-                script_path = extract_path(optarg);
+                script_path = host_expand_path(optarg);
                 break;
 
             case 'o': // User specified image
-                image_path = extract_path(optarg);
+                image_path = host_expand_path(optarg);
                 break;
 
             default:

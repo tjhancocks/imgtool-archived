@@ -21,10 +21,12 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include <shell/attach.h>
 #include <shell/shell.h>
 #include <device/virtual.h>
+#include <common/host.h>
 
 void shell_attach(shell_t shell, int argc, const char *argv[])
 {
@@ -42,7 +44,9 @@ void shell_attach(shell_t shell, int argc, const char *argv[])
         return;
     }
 
-    shell->attached_device = device_create(argv[1]);
+    const char *path = host_expand_path(argv[1]);
+    shell->attached_device = device_create(path);
+    free((void *)path);
 }
 
 void shell_detach(shell_t shell, int argc, const char *argv[])
