@@ -45,6 +45,10 @@ void shell_import(struct shell *shell, int argc, const char *argv[])
     // Open the file, get the size and read the data
     const char *path = host_expand_path(argv[1]);
     FILE *f = fopen(path, "r");
+    if (!f) {
+        fprintf(stderr, "Could not open the specified file\n");
+        return;
+    }
     fseek(f, 0L, SEEK_END);
     shell->import_buffer_size = (uint32_t)ftell(f);
     fseek(f, 0L, SEEK_SET);
@@ -52,6 +56,7 @@ void shell_import(struct shell *shell, int argc, const char *argv[])
 
     shell->import_buffer = calloc(shell->import_buffer_size, sizeof(uint8_t));
     fread(shell->import_buffer, sizeof(uint8_t), shell->import_buffer_size, f);
+    fclose(f);
 
     printf("Imported %d bytes to internal buffer\n", shell->import_buffer_size);
 }

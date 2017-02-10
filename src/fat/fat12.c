@@ -42,6 +42,15 @@
        __typeof__ (b) _b = (b); \
        _a > _b ? _a : _b; })
 
+#ifdef MIN
+#   undef MIN
+#endif
+
+#define MIN(a,b) \
+    ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+       _a < _b ? _a : _b; })
+
 
 #pragma mark - FAT Constants
 
@@ -57,6 +66,7 @@ enum fat12_attribute {
 enum fat12_cluster_ref {
     fat12_cluster_ref_free = 0x000,
     fat12_cluster_ref_eof = 0xfff,
+    fat12_cluster_mask = 0xffff,
 };
 
 
@@ -72,7 +82,11 @@ void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode);
 void fat12_set_directory(vfs_t fs, vfs_directory_t dir);
 void *fat12_list_directory(vfs_t fs);
 
-void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n);
+vfs_node_t fat12_get_file(vfs_t fs,
+                          const char *name,
+                          uint8_t create_missing,
+                          uint8_t creation_attributes);
+void fat12_file_write(vfs_t fs, const char *name, void *data, uint32_t n);
 
 void fat12_create_file(vfs_t, const char *, enum vfs_node_attributes);
 void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
@@ -471,6 +485,11 @@ uint16_t fat12_fat_table_entry(vfs_t fs, uint32_t entry)
 {
     assert(fs);
 
+    // If the entry is an invalid one then simply return EOF
+    if (entry < 2 || entry == fat12_cluster_ref_eof) {
+        return fat12_cluster_ref_eof;
+    }
+
     fat12_t fat = fs->assoc_info;
 
     // Convert the entry to an absolute offset in the FAT. We need to ensure
@@ -495,6 +514,11 @@ uint16_t fat12_fat_table_entry(vfs_t fs, uint32_t entry)
 void fat12_fat_table_set_entry(vfs_t fs, uint32_t entry, uint16_t value)
 {
     assert(fs);
+
+    // If the entry is an invalid one then abort.
+    if (entry < 2 || entry == fat12_cluster_ref_eof) {
+        return;
+    }
 
     fat12_t fat = fs->assoc_info;
 
@@ -524,6 +548,14 @@ void fat12_fat_table_set_entry(vfs_t fs, uint32_t entry, uint16_t value)
 
 
 #pragma mark - Clusters
+
+uint32_t fat12_cluster_count_for_size(vfs_t fs, uint32_t n)
+{
+    assert(fs);
+    fat12_t fat = fs->assoc_info;
+    uint32_t sectors = n / fat->bpb->bytes_per_sector;
+    return sectors / fat->bpb->sectors_per_cluster;
+}
 
 uint16_t fat12_first_available_cluster(vfs_t fs)
 {
@@ -571,7 +603,7 @@ uint16_t fat12_next_cluster(vfs_t fs, uint16_t cluster)
 {
     // Ensure we only have the lower 12 bits of the cluster number.
     // If the cluster is an end of file cluster then return back immediately.
-    cluster = (cluster & fat12_cluster_ref_eof);
+    cluster = (cluster & fat12_cluster_mask);
     if (cluster == fat12_cluster_ref_eof) {
         return cluster;
     }
@@ -761,14 +793,21 @@ vfs_node_t fat12_find_file(fat12_t fat, const char *name)
 {
     assert(fat);
 
+    // Convert the name to a short name
+    const char *sfn = fat12_construct_short_name(name, 1);
+    const char *reg = fat12_construct_standard_name_from_sfn(sfn);
+
     vfs_node_t node = fat->working_directory->first;
     while (node) {
         // Is this the file in question?
-        if (strcmp(name, node->name) == 0) {
+        if (strcmp(reg, node->name) == 0) {
             break;
         }
         node = node->next;
     }
+
+    free((void *)sfn);
+    free((void *)reg);
 
     return node;
 }
@@ -776,136 +815,132 @@ vfs_node_t fat12_find_file(fat12_t fat, const char *name)
 
 #pragma mark - Cluster Writing
 
-void fat12_file_write(vfs_t fs, const char *name, uint8_t *data, uint32_t n)
+void fat12_write_cluster_data(vfs_t fs,
+                              uint32_t cluster,
+                              void *data,
+                              uint32_t size)
 {
     assert(fs);
 
-    // Search for the file in the current directory. A file should be already
-    // present for us to write to. If not, fail the operation.
+    // Get the general fat information
     fat12_t fat = fs->assoc_info;
-    vfs_node_t node = fat12_find_file(fat, name);
+    fat12_bpb_t bpb = fat->bpb;
 
-    // Is the node NULL? If it is then we failed.
-    if (!node) {
-        fprintf(stderr, "File \"%s\" does not exist!\n", name);
-        return;
-    }
+    // Create a blank data buffer. This is what we'll write into the cluster.
+    // We'll add in the data we've been supplied before however.
+    uint32_t buffer_size = bpb->sectors_per_cluster * bpb->bytes_per_sector;
+    uint8_t *buffer = calloc(buffer_size, sizeof(*buffer));
 
-    // Look up some required information about it. This may require an
-    // adjustment to the cluster chain.
-    fat12_sfn_t sfn = node->assoc_info;
+    // Copy in the data to the buffer.
+    assert(size <= buffer_size);
+    memcpy(buffer, data, size);
 
-    // Has the size changed? If so, how?
-    uint32_t old_sectors = (((sfn->size?:1) + (fat->bpb->bytes_per_sector - 1))
-                            / fat->bpb->bytes_per_sector);
-    uint32_t new_sectors = ((n + (fat->bpb->bytes_per_sector - 1))
-                            / fat->bpb->bytes_per_sector);
-
-    // We need to iterate through the cluster chain and write out each of the
-    // sectors. When we have exhausted the sectors in the data, if we still have
-    // clusters remaining in the old chain, continue traversing it and clearing
-    // them. If we run out of old clusters then we need to begin claiming more
-    // clusters.
-    uint16_t cluster = sfn->first_cluster;
-    uint32_t chain_i = 0;
-    uint32_t old_clusters = old_sectors * fat->bpb->sectors_per_cluster;
-    uint32_t new_clusters = new_sectors * fat->bpb->sectors_per_cluster;
-    uint32_t total_clusters = MAX(old_clusters, new_clusters);
-
-    while (chain_i < total_clusters) {
-
-        // The first check is to see if we're outside of the original
-        // cluster chain. We need to start claiming clusters in this scenario.
-        if (chain_i >= old_clusters) {
-            // we need to claim another cluster. Make it the end of file
-            // cluster.
-            uint32_t new_cluster = fat12_first_available_cluster(fs);
-            fat12_fat_table_set_entry(fs, cluster, new_cluster);
-            fat12_fat_table_set_entry(fs, new_cluster, fat12_cluster_ref_eof);
-        }
-
-        // The next check is to see if we are outside of the new cluster chain
-        else if (chain_i >= new_clusters) {
-            uint32_t tmp = fat12_next_cluster(fs, cluster);
-
-            if (chain_i == new_clusters - 1) {
-                fat12_fat_table_set_entry(fs, cluster, fat12_cluster_ref_eof);
-            }
-            else {
-                fat12_fat_table_set_entry(fs, cluster, fat12_cluster_ref_free);
-            }
-            cluster = tmp;
-            chain_i++;
-            continue;
-        }
-
-        // Write out the data for this cluster
-        uint32_t sector = fat12_sector_for_cluster(fs, cluster);
-        uint32_t count = fat->bpb->sectors_per_cluster;
-        uint32_t offset = (chain_i * fat->bpb->sectors_per_cluster
-                           * fat->bpb->bytes_per_sector);
-
-        // Copy the data into an appropriate buffer first
-        uint8_t *buffer = calloc(count, fat->bpb->bytes_per_sector);
-        memcpy(buffer, data + offset, n);
-        device_write_sectors(fs->device, sector, count, buffer);
-        free(buffer);
-
-        // Move to the next cluster in the chain.
-        chain_i++;
-        cluster = fat12_next_cluster(fs, cluster);
-    }
-
-    // Update the metadata
-    sfn->size = n;
-    node->size = n;
-
-    // Flush changes
-    fat12_flush_fat_table(fs);
-    fat12_flush_directory(fs);
-}
-
-void fat12_clear_cluster(vfs_t fs, uint32_t cluster)
-{
-    assert(fs);
-
-    fat12_t fat = fs->assoc_info;
-
-    // Create a blank cluster that can be written to the device.
-    uint8_t *data = calloc(fat->bpb->sectors_per_cluster,
-                           fat->bpb->bytes_per_sector);
-
-    // Write out to the cluster
-    uint32_t first_sector = fat12_sector_for_cluster(fs, cluster);
-    uint32_t sector_count = fat->bpb->sectors_per_cluster;
-
-    device_write_sectors(fs->device, first_sector, sector_count, data);
+    // Write the buffer to the cluster
+    uint32_t sector = fat12_sector_for_cluster(fs, cluster);
+    device_write_sectors(fs->device, sector, bpb->sectors_per_cluster, buffer);
 
     // Clean up
-    free(data);
+    free(buffer);
 }
 
-uint16_t fat12_acquire_blank_cluster_chain(vfs_t fs, uint32_t n)
+uint16_t fat12_reallocate_cluster_chain(vfs_t fs, uint16_t cluster, uint32_t n)
 {
     assert(fs);
-    assert(n > 0);
 
-    // Acquire the first cluster node, and decrement the amount.
-    uint16_t first_cluster = fat12_first_available_cluster(fs);
-    fat12_clear_cluster(fs, first_cluster);
-    fat12_fat_table_set_entry(fs, first_cluster, fat12_cluster_ref_eof);
-    --n;
+    // We're going to step through the cluster chain and keep allocating
+    // clusters until we exhaust `n`. However there are some complications. If
+    // a cluster already exists in the chain, then we do not allocate it if `n`
+    // is still greater than 0.  If more clusters exist in the chain and `n` is
+    // equal to or less than 0, then we mark the cluster as free. If `n` is 0,
+    // then we mark that cluster as end of file (EOF).
+    int32_t clusters_remaining = n;
+    uint32_t previous_cluster = 0;
+    uint32_t start_cluster = fat12_cluster_ref_eof;
+    
+    while (cluster != fat12_cluster_ref_eof || clusters_remaining >= 0) {
+        // Get the original next cluster. We may need to overwrite this value
+        // in the course of the checks.
+        uint32_t original_next_cluster = fat12_next_cluster(fs, cluster);
+        
+        // Do we need to allocate another cluster? If we still have clusters
+        // that need allocating, and the next cluster is an EOF then yes.
+        if (clusters_remaining > 0 && cluster == fat12_cluster_ref_eof) {
+            // Acquire a new cluster and mark it appropriately.
+            cluster = fat12_first_available_cluster(fs);
+            fat12_fat_table_set_entry(fs, cluster, fat12_cluster_ref_eof);
+            fat12_fat_table_set_entry(fs, previous_cluster, cluster);
+        }
 
-    uint16_t last_cluster = first_cluster;
-    while (n--) {
-        uint16_t cluster = fat12_first_available_cluster(fs);
-        fat12_clear_cluster(fs, cluster);
-        fat12_fat_table_set_entry(fs, last_cluster, cluster);
-        fat12_fat_table_set_entry(fs, cluster, fat12_cluster_ref_eof);
-        last_cluster = cluster;
+        // Have we reach the final cluster? If so then mark it as EOF.
+        else if (clusters_remaining == 0 && cluster != fat12_cluster_ref_eof) {
+            // Mark as EOF
+            fat12_fat_table_set_entry(fs, cluster, fat12_cluster_ref_eof);
+        }
+
+        // Does the chain still contain clusters, but the new length is
+        // finished? If so then mark the cluster as free.
+        else if (clusters_remaining < 0 && cluster != fat12_cluster_ref_eof) {
+            fat12_fat_table_set_entry(fs, cluster, fat12_cluster_ref_free);
+        }
+
+        // If we haven't matched any rule, then its probably because nothing
+        // needs to be done to the cluster chain. Ignore it.
+
+        // Make sure the active cluster is the next cluster, and decrement the
+        // remaining clusters. Also determine if we need to set the starting
+        // cluster.
+        if (start_cluster == fat12_cluster_ref_eof) {
+            start_cluster = cluster;
+        }
+
+        previous_cluster = cluster;
+        cluster = original_next_cluster;
+        --clusters_remaining;
+    }
+
+    return start_cluster;
+}
+
+void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
+{
+    assert(fs);
+    
+    fat12_t fat = fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
+    
+    // We first all need to determine how many clusters are going to be needed
+    // for the file.
+    uint32_t clusters = fat12_cluster_count_for_size(fs, n);
+    uint32_t cluster_size = bpb->bytes_per_sector * bpb->sectors_per_cluster;
+    
+    // We need to search for the get the vfs node for the file. Indicate that it
+    // should be made if it does not already exist!
+    vfs_node_t node = fat12_get_file(fs, filename, 1, 0);
+    if (!node) {
+        fprintf(stderr, "Could not write file. File could not be created!\n");
+        return;
     }
     
-    return first_cluster;
+    // Get the actual directory entry for the file as it will contain useful
+    // information. Mark the node as dirty so that we actually flush any
+    // changes.
+    fat12_sfn_t sfn = node->assoc_info;
+    node->is_dirty = 1;
+    node->size = sfn->size = n;
+    
+    // We should now reallocate the cluster chain for the file.
+    sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
+                                                        sfn->first_cluster,
+                                                        clusters);
+    
+    // We're now ready to begin writing out clusters. We need to work out the
+    // size of a cluster in bytes and step through the data buffer, passing it
+    // at each offset to the cluster writing function.
+    for (uint32_t i = 0; i < clusters; ++i) {
+        uint32_t data_offset = i * cluster_size;
+        uint32_t data_len = MIN(cluster_size, n - data_offset);
+        fat12_write_cluster_data(fs, i, data + data_offset, data_len);
+    }
 }
 
 
@@ -928,7 +963,9 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     clusters = clusters > 0 ? clusters : 1;
     
     // Go ahead an acquire the cluster chain up front for the file.
-    uint16_t first_cluster = fat12_acquire_blank_cluster_chain(fs, clusters);
+    uint16_t cluster = fat12_reallocate_cluster_chain(fs,
+                                                      fat12_cluster_ref_eof,
+                                                      clusters);
     
     // Calculate the short filename for the provided filename. This should
     // check all entries in the current filename for duplicates and increase
@@ -940,7 +977,7 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     fat12_sfn_t sfn = calloc(1, sizeof(*sfn));
     fat12_copy_padded_string((char *)sfn->name, sfn_name, ' ', 11);
     sfn->attribute = attributes;
-    sfn->first_cluster = first_cluster;
+    sfn->first_cluster = cluster;
     
     // Return the directory entry to the caller
     return sfn;
@@ -983,6 +1020,7 @@ void fat12_create_directory_node(vfs_node_t node,
     assert(node);
 
     fat12_t fat = node->fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
     
     // Add in the directory attribute.
     attributes |= vfs_node_directory_attribute;
@@ -1000,8 +1038,8 @@ void fat12_create_directory_node(vfs_node_t node,
     // Create a new blank sector for the directory. We need to populate two
     // entries into it. These entries are `.` and `..` which are required for
     // a directory.
-    uint8_t *data = calloc(fat->bpb->sectors_per_cluster,
-                           fat->bpb->bytes_per_sector);
+    uint32_t data_len = bpb->sectors_per_cluster * bpb->bytes_per_sector;
+    uint8_t *data = calloc(data_len, sizeof(*data));
     fat12_sfn_t entries = (fat12_sfn_t)data;
     
     // First entry is `.`
@@ -1014,12 +1052,8 @@ void fat12_create_directory_node(vfs_node_t node,
     entries[1].first_cluster = 0x000;
     entries[1].attribute = fat12_attribute_directory;
 
-    // Finally write directory data out to the first clust
-    uint32_t first_sector = fat12_sector_for_cluster(node->fs,
-                                                     sfn->first_cluster);
-    uint32_t sector_count = fat->bpb->sectors_per_cluster;
-
-    device_write_sectors(node->fs->device, first_sector, sector_count, data);
+    // Finally write directory data out to the first cluster
+    fat12_write_cluster_data(node->fs, sfn->first_cluster, data, data_len);
 
     // Clean up
     free(data);
@@ -1033,49 +1067,80 @@ uint8_t fat12_is_node_available(vfs_node_t node)
 
 #pragma mark - High Level File Support
 
-void fat12_create_file(vfs_t fs, const char *name, enum vfs_node_attributes a)
+vfs_node_t fat12_get_file(vfs_t fs,
+                          const char *name,
+                          uint8_t create_missing,
+                          uint8_t creation_attributes)
 {
     assert(fs);
-    assert(name);
-
+    
+    // Convert the name to a name that is understood on the FAT file system.
+    const char *sfn = fat12_construct_short_name(name, 1);
+    const char *reg = fat12_construct_standard_name_from_sfn(sfn);
+    
+    // Get the working directory and scan through the files for a match.
     fat12_t fat = fs->assoc_info;
-
-    // Find the first available entry in the root directory.
     vfs_node_t node = fat->working_directory->first;
+    vfs_node_t first_available = NULL;
     while (node) {
-        // If the node is available then touch this one.
-        if (fat12_is_node_available(node)) {
-            fat12_create_file_node(node, name, 0, a);
+        
+        // Check if the node actually exists. If it doesn't then assume the
+        // directory has no more entries.
+        if (node->state == vfs_node_unused) {
+            first_available = first_available ?: node;
             break;
         }
+        
+        // Check if the node exists, but is actually a deleted entry. If it is
+        // a deleted entry, then check if it is the first available.
+        else if (node->state == vfs_node_available) {
+            first_available = first_available ?: node;
+        }
+        
+        // Everything else should be tested as if it were a normal entry. Test
+        // the name.
+        else if (strcmp(node->name, reg) == 0) {
+            // The node is a metch. This is the file we were looking for.
+            break;
+        }
+        
+        // Nothing matched or significant happened... move on to the next node.
         node = node->next;
     }
-
-    // Flush the directory
+    
+    // Should we attempt to create a node for the file, if no file existed?
+    if (first_available && create_missing) {
+        node = first_available;
+        
+        if (creation_attributes & vfs_node_directory_attribute) {
+            fat12_create_directory_node(node, name, creation_attributes);
+        }
+        else {
+            fat12_create_file_node(node, name, 0, creation_attributes);
+        }
+        
+        node = first_available;
+    }
+    
+    // Clean up
+    free((void *)sfn);
+    free((void *)reg);
+    
+    // Flush the working directory to reflect changes
     fat12_flush_fat_table(fs);
     fat12_flush_directory(fs);
+    
+    // Return the node to the caller
+    return node;
+}
+
+void fat12_create_file(vfs_t fs, const char *name, enum vfs_node_attributes a)
+{
+    fat12_get_file(fs, name, 1, a);
 }
 
 void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a)
 {
-    assert(fs);
-    assert(name);
-
-    fat12_t fat = fs->assoc_info;
-
-    // Find the first available entry in the root directory.
-    vfs_node_t node = fat->working_directory->first;
-    while (node) {
-        // If the node is available then touch this one.
-        if (fat12_is_node_available(node)) {
-            fat12_create_directory_node(node, name, a);
-            break;
-        }
-        node = node->next;
-    }
-
-    // Flush the directory
-    fat12_flush_fat_table(fs);
-    fat12_flush_directory(fs);
+    fat12_get_file(fs, name, 1, a | vfs_node_directory_attribute);
 }
 
