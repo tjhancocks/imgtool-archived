@@ -936,11 +936,17 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     // We're now ready to begin writing out clusters. We need to work out the
     // size of a cluster in bytes and step through the data buffer, passing it
     // at each offset to the cluster writing function.
+    uint32_t cluster = sfn->first_cluster;
     for (uint32_t i = 0; i < clusters; ++i) {
         uint32_t data_offset = i * cluster_size;
         uint32_t data_len = MIN(cluster_size, n - data_offset);
-        fat12_write_cluster_data(fs, i, data + data_offset, data_len);
+        fat12_write_cluster_data(fs, cluster, data + data_offset, data_len);
+        cluster = fat12_next_cluster(fs, cluster);
     }
+    
+    // Flush the working directory to reflect changes we've made to an entry.
+    fat12_flush_fat_table(fs);
+    fat12_flush_directory(fs);
 }
 
 
@@ -978,6 +984,7 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     fat12_copy_padded_string((char *)sfn->name, sfn_name, ' ', 11);
     sfn->attribute = attributes;
     sfn->first_cluster = cluster;
+    sfn->size = size;
     
     // Return the directory entry to the caller
     return sfn;
