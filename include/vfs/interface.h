@@ -35,7 +35,7 @@ struct vfs_interface {
     void *(*mount_filesystem)(struct vfs *fs);
     void (*unmount_filesystem)(struct vfs *fs);
     void (*set_directory)(struct vfs *fs, struct vfs_directory *dir);
-    void *(*list_directory)(struct vfs *fs);
+    struct vfs_directory *(*get_directory)(struct vfs *fs);
     void (*create_file)(struct vfs *fs,
                         const char *filename,
                         enum vfs_node_attributes attributes);

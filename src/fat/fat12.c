@@ -79,8 +79,8 @@ void fat12_unmount(vfs_t fs);
 
 void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode);
 
+vfs_directory_t fat12_get_directory(vfs_t fs);
 void fat12_set_directory(vfs_t fs, vfs_directory_t dir);
-void *fat12_list_directory(vfs_t fs);
 
 vfs_node_t fat12_get_file(vfs_t fs,
                           const char *name,
@@ -105,8 +105,8 @@ vfs_interface_t fat12_init()
 
     fs->format_device = fat12_format_device;
 
+    fs->get_directory = fat12_get_directory;
     fs->set_directory = fat12_set_directory;
-    fs->list_directory = fat12_list_directory;
 
     fs->write = fat12_file_write;
 
@@ -758,6 +758,13 @@ void fat12_flush_directory(vfs_t fs)
     free(buffer);
 }
 
+vfs_directory_t fat12_get_directory(vfs_t fs)
+{
+    assert(fs);
+    fat12_t fat = fs->assoc_info;
+    return fat->working_directory;
+}
+
 void fat12_set_directory(vfs_t fs, vfs_directory_t dir)
 {
     assert(fs);
@@ -775,41 +782,6 @@ void fat12_set_directory(vfs_t fs, vfs_directory_t dir)
     }
 
     fat12_load_directory(fs, start, count);
-}
-
-void *fat12_list_directory(vfs_t fs)
-{
-    assert(fs);
-    fat12_t fat = fs->assoc_info;
-    
-    if (!fat->working_directory) {
-        fat12_set_directory(fs, NULL);
-    }
-    
-    return fat->working_directory;
-}
-
-vfs_node_t fat12_find_file(fat12_t fat, const char *name)
-{
-    assert(fat);
-
-    // Convert the name to a short name
-    const char *sfn = fat12_construct_short_name(name, 1);
-    const char *reg = fat12_construct_standard_name_from_sfn(sfn);
-
-    vfs_node_t node = fat->working_directory->first;
-    while (node) {
-        // Is this the file in question?
-        if (strcmp(reg, node->name) == 0) {
-            break;
-        }
-        node = node->next;
-    }
-
-    free((void *)sfn);
-    free((void *)reg);
-
-    return node;
 }
 
 
