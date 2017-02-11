@@ -37,6 +37,9 @@
 #include <shell/set.h>
 #include <shell/attach.h>
 #include <shell/init.h>
+#include <shell/rm.h>
+#include <shell/read.h>
+#include <shell/export.h>
 
 void shell_register_commands(shell_t shell)
 {
@@ -48,7 +51,9 @@ void shell_register_commands(shell_t shell)
     shell_add_command(shell, shell_command_create("unmount", shell_unmount));
     shell_add_command(shell, shell_command_create("touch", shell_touch));
     shell_add_command(shell, shell_command_create("import", shell_import));
+    shell_add_command(shell, shell_command_create("export", shell_export));
     shell_add_command(shell, shell_command_create("write", shell_write));
+    shell_add_command(shell, shell_command_create("read", shell_read));
     shell_add_command(shell, shell_command_create("mkdir", shell_mkdir));
     shell_add_command(shell, shell_command_create("ls", shell_ls));
     shell_add_command(shell, shell_command_create("set", shell_set));
@@ -56,5 +61,6 @@ void shell_register_commands(shell_t shell)
     shell_add_command(shell, shell_command_create("attach", shell_attach));
     shell_add_command(shell, shell_command_create("detach", shell_detach));
     shell_add_command(shell, shell_command_create("init", shell_init_dev));
+    shell_add_command(shell, shell_command_create("rm", shell_rm));
 }
 

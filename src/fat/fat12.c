@@ -88,10 +88,16 @@ vfs_node_t fat12_get_file(vfs_t fs,
                           const char *name,
                           uint8_t create_missing,
                           uint8_t creation_attributes);
+
 void fat12_file_write(vfs_t fs, const char *name, void *data, uint32_t n);
+uint32_t fat12_file_read(vfs_t fs, const char *name, void **data);
 
 void fat12_create_file(vfs_t, const char *, enum vfs_node_attributes);
 void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
+
+void fat12_remove_file(vfs_t fs, const char *name);
+
+void fat12_flush(vfs_t fs);
 
 
 #pragma mark - VFS Interface Creation
@@ -111,9 +117,14 @@ vfs_interface_t fat12_init()
     fs->set_directory = fat12_set_directory;
 
     fs->write = fat12_file_write;
+    fs->read = fat12_file_read;
 
     fs->create_file = fat12_create_file;
     fs->create_dir = fat12_create_dir;
+    
+    fs->remove = fat12_remove_file;
+    
+    fs->flush_directory = fat12_flush;
 
     return fs;
 }
@@ -659,6 +670,8 @@ uint32_t fat12_is_eof_cluster(uint16_t cluster)
 
 uint16_t fat12_next_cluster(vfs_t fs, uint16_t cluster)
 {
+    fat12_load_fat_table(fs);
+    
     // Ensure we only have the lower 12 bits of the cluster number.
     // If the cluster is an end of file cluster then return back immediately.
     cluster = (cluster & fat12_cluster_mask);
@@ -771,8 +784,17 @@ fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
         sfn->mdate = fat12_date_from_posix(node->modification_time);
         sfn->adate = fat12_date_from_posix(node->access_time);
         
-        const char *sfn_name = fat12_construct_short_name(node->name, 1);
-        fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
+        // If the node has been deleted, then just toggle the name bit in the
+        // SFN rather than rebuilding the name. This is due to a slight bug
+        // in the short name constructor which does same strange mangling of
+        // the name...
+        if ((uint8_t)node->name[0] == 0xE5) {
+            sfn->name[0] = 0xe5;
+        }
+        else {
+            const char *sfn_name = fat12_construct_short_name(node->name, 1);
+            fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
+        }
         
         node->is_dirty = 0;
     }
@@ -1009,8 +1031,72 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     }
     
     // Flush the working directory to reflect changes we've made to an entry.
-    fat12_flush_fat_table(fs);
-    fat12_flush_directory(fs);
+    fat12_flush(fs);
+}
+
+
+#pragma mark - Cluster Reading
+
+void fat12_read_cluster_data(vfs_t fs,
+                             uint32_t cluster,
+                             void *data,
+                             uint32_t size)
+{
+    assert(fs);
+    
+    fat12_t fat = fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
+    
+    // Read the cluster in to the buffer
+    void *buffer = device_read_sectors(fs->device,
+                                       fat12_sector_for_cluster(fs, cluster),
+                                       bpb->sectors_per_cluster);
+    
+    // Transfer to the data supplied
+    if (data) {
+        memcpy(data, buffer, size);
+    }
+    
+    // Clean up
+    free(buffer);
+}
+
+uint32_t fat12_file_read(vfs_t fs, const char *name, void **data)
+{
+    assert(fs);
+    assert(data);
+    
+    // Get the file in question. If we can't find it then ensure data out is
+    // NULL and return 0.
+    vfs_node_t node = fat12_get_file(fs, name, 0, 0);
+    if (!node) {
+        *data = NULL;
+        return 0;
+    }
+    
+    // Get the directory entry for the file so that we can access cluster
+    // information.
+    fat12_t fat = fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
+    fat12_sfn_t sfn = node->assoc_info;
+    
+    // We now need to allocate enough space for the data to reside.
+    *data = calloc(node->size, sizeof(uint8_t));
+    
+    // Read out data until we have received all the data from the device.
+    uint32_t bytes_received = 0;
+    uint16_t cluster = sfn->first_cluster;
+    uint32_t cluster_size = bpb->bytes_per_sector * bpb->sectors_per_cluster;
+    
+    while (bytes_received < node->size) {
+        uint32_t data_len = MIN(cluster_size, node->size - bytes_received);
+        uint32_t offset = bytes_received;
+        bytes_received += data_len;
+        fat12_read_cluster_data(fs, cluster, (*data) + offset, data_len);
+        cluster = fat12_next_cluster(fs, cluster);
+    }
+    
+    return node->size;
 }
 
 
@@ -1206,8 +1292,7 @@ vfs_node_t fat12_get_file(vfs_t fs,
     free((void *)reg);
     
     // Flush the working directory to reflect changes
-    fat12_flush_fat_table(fs);
-    fat12_flush_directory(fs);
+    fat12_flush(fs);
     
     // Return the node to the caller
     return node;
@@ -1223,3 +1308,45 @@ void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a)
     fat12_get_file(fs, name, 1, a | vfs_node_directory_attribute);
 }
 
+void fat12_remove_file(vfs_t fs, const char *name)
+{
+    // Find the file that needs to be removed.
+    vfs_node_t node = fat12_get_file(fs, name, 0, 0);
+    if (!node) {
+        return;
+    }
+    
+    // Mark the first character of the name as 0xE5 to indicate it's been
+    // deleted.
+    *((uint8_t *)node->name) = 0xe5;
+    node->is_dirty = 1;
+    node->state = vfs_node_available;
+    
+    // We also need to destroy the cluster chain and mark everything as
+    // available.
+    fat12_sfn_t sfn = node->assoc_info;
+    sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
+                                                        sfn->first_cluster,
+                                                        0);
+    
+    // Check the first cluster. If it is not an EOF, then look up the cluster,
+    // and set it to be free, and mark the first cluster as EOF.
+    if (sfn->first_cluster != fat12_cluster_ref_eof) {
+        fat12_fat_table_set_entry(fs,
+                                  sfn->first_cluster,
+                                  fat12_cluster_ref_free);
+        sfn->first_cluster = fat12_cluster_ref_eof;
+    }
+    
+    // Finally force the contents of the directory to be flushed to the device.
+    fat12_flush(fs);
+}
+
+
+#pragma mark - Metadata Flushing
+
+void fat12_flush(vfs_t fs)
+{
+    fat12_flush_fat_table(fs);
+    fat12_flush_directory(fs);
+}

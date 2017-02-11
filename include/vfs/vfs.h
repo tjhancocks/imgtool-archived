@@ -51,5 +51,8 @@ void vfs_touch(vfs_t vfs, const char *name);
 void vfs_mkdir(vfs_t vfs, const char *name);
 
 void vfs_write(vfs_t vfs, const char *name, uint8_t *bytes, uint32_t size);
+uint32_t vfs_read(vfs_t vfs, const char *name, uint8_t **bytes);
+
+void vfs_remove(vfs_t vfs, const char *name);
 
 #endif /* vfs_h */

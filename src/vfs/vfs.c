@@ -113,6 +113,19 @@ void vfs_mkdir(vfs_t vfs, const char *name)
 
 void vfs_write(vfs_t vfs, const char *name, uint8_t *bytes, uint32_t size)
 {
+    assert(vfs);
     vfs_touch(vfs, name);
     vfs->filesystem_interface->write(vfs, name, bytes, size);
+}
+
+uint32_t vfs_read(vfs_t vfs, const char *name, uint8_t **bytes)
+{
+    assert(vfs);
+    return vfs->filesystem_interface->read(vfs, name, (void **)bytes);
+}
+
+void vfs_remove(vfs_t vfs, const char *name)
+{
+    assert(vfs);
+    vfs->filesystem_interface->remove(vfs, name);
 }
