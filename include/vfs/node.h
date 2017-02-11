@@ -24,6 +24,7 @@
 #define VFS_NODE
 
 #include <stdint.h>
+#include <time.h>
 
 struct vfs;
 struct vfs_node;
@@ -47,6 +48,9 @@ struct vfs_node {
     uint8_t is_dirty;
     const char *name;
     uint32_t size;
+    time_t creation_time;
+    time_t modification_time;
+    time_t access_time;
     enum vfs_node_attributes attributes;
     enum vfs_node_state state;
     struct vfs_node *next;
