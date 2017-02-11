@@ -23,6 +23,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
 
 #include <fat/fat12.h>
 #include <fat/fat12-structures.h>
@@ -177,6 +179,52 @@ enum vfs_node_attributes fat12_translate_to_vfs_attributes(uint8_t attr)
     vfsa |= attr & fat12_attribute_directory ? vfs_node_directory_attribute : 0;
     vfsa |= attr & fat12_attribute_system ? vfs_node_system_attribute : 0;
     return vfsa;
+}
+
+
+#pragma mark - FAT Date Calculations
+
+uint16_t fat12_date_from_posix(time_t posix)
+{
+    struct tm ts = *localtime(&posix);
+    
+    uint32_t year = ((1900 + ts.tm_year) - 1980);
+    uint32_t month = ts.tm_mon + 1;
+    uint32_t day = ts.tm_mday;
+    
+    return ((year << 9) & 0xFE00) | ((month << 5) & 0x01E0) | (day & 0x001F);
+}
+
+uint16_t fat12_time_from_posix(time_t posix)
+{
+    struct tm ts = *localtime(&posix);
+    
+    uint32_t hour = ts.tm_hour;
+    uint32_t min = ts.tm_min;
+    uint32_t sec = ts.tm_sec;
+    
+    return ((hour << 11) & 0xF800) | ((min << 5) & 0x07E0) | (sec & 0x001F);
+}
+
+time_t fat12_date_time_to_posix(uint16_t date, uint16_t time)
+{
+    uint32_t year = (date & 0xFE00) >> 9;
+    uint32_t month = (date & 0x01E0) >> 5;
+    uint32_t day = (date & 0x1F);
+    
+    uint32_t hour = (time & 0xF800) >> 11;
+    uint32_t minute = (time & 0x07E0) >> 5;
+    uint32_t second = (time & 0x001F);
+    
+    struct tm ts;
+    ts.tm_year = (year + 1980) - 1900;
+    ts.tm_mon = month;
+    ts.tm_mday = day;
+    ts.tm_hour = hour;
+    ts.tm_min = minute;
+    ts.tm_sec = second;
+    
+    return mktime(&ts);
 }
 
 
@@ -692,7 +740,8 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
     assert(sfni < bpb->directory_entries);
     
     // Extract the relavent directory entry.
-    fat12_sfn_t sfn = (fat12_sfn_t)dir_data + (sfni * sizeof(*sfn));
+    uintptr_t ptr = (uintptr_t)dir_data + (sfni * sizeof(struct fat12_sfn));
+    fat12_sfn_t sfn = (fat12_sfn_t)ptr;
     const char *sfn_name = (const char *)sfn->name;
     
     // Construct the VFS node and copy out all appropriate entries
@@ -701,6 +750,9 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
     node->state = fat12_node_state_from_name(sfn->name);
     node->name = fat12_construct_standard_name_from_sfn(sfn_name);
     node->size = sfn->size;
+    node->creation_time = fat12_date_time_to_posix(sfn->cdate, sfn->ctime);
+    node->modification_time = fat12_date_time_to_posix(sfn->mdate, sfn->mtime);
+    node->access_time = fat12_date_time_to_posix(sfn->adate, 0);
     
     // Finally return the node to the caller
     return node;
@@ -713,6 +765,11 @@ fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
     if (node->is_dirty) {
         sfn->attribute = fat12_translate_from_vfs_attributes(node->attributes);
         sfn->size = node->size;
+        sfn->ctime = fat12_time_from_posix(node->creation_time);
+        sfn->cdate = fat12_date_from_posix(node->creation_time);
+        sfn->mtime = fat12_time_from_posix(node->modification_time);
+        sfn->mdate = fat12_date_from_posix(node->modification_time);
+        sfn->adate = fat12_date_from_posix(node->access_time);
         
         const char *sfn_name = fat12_construct_short_name(node->name, 1);
         fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
@@ -931,7 +988,9 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     // changes.
     fat12_sfn_t sfn = node->assoc_info;
     node->is_dirty = 1;
-    node->size = sfn->size = n;
+    node->size = n;
+    node->modification_time = time(NULL);
+    node->access_time = time(NULL);
     
     // We should now reallocate the cluster chain for the file.
     sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
@@ -991,6 +1050,15 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     sfn->first_cluster = cluster;
     sfn->size = size;
     
+    // Set the creation time.
+    time_t now = time(NULL);
+    sfn->cdate = fat12_date_from_posix(now);
+    sfn->mdate = sfn->cdate;
+    sfn->adate = sfn->adate;
+    
+    sfn->ctime = fat12_time_from_posix(now);
+    sfn->mtime = sfn->ctime;
+    
     // Return the directory entry to the caller
     return sfn;
 }
@@ -1013,6 +1081,9 @@ void fat12_create_file_node(vfs_node_t node,
     node->size = size;
     node->state = vfs_node_used;
     node->attributes = attributes;
+    node->creation_time = fat12_date_time_to_posix(sfn->cdate, sfn->ctime);
+    node->modification_time = fat12_date_time_to_posix(sfn->mdate, sfn->mtime);
+    node->access_time = fat12_date_time_to_posix(sfn->adate, 0);
     
     // The final task is to extract the regular filename from the SFN.
     free((void *)node->name);
@@ -1040,7 +1111,8 @@ void fat12_create_directory_node(vfs_node_t node,
     // Construct the actual node for the directory.
     fat12_create_file_node(node, filename, size, attributes);
     fat12_sfn_t sfn = node->assoc_info;
-    node->size = sfn->size = 0;
+    node->size = 0;
+    node->is_dirty = 1;
     
     // Create a new blank sector for the directory. We need to populate two
     // entries into it. These entries are `.` and `..` which are required for
