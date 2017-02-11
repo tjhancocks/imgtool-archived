@@ -47,7 +47,7 @@ vfs_interface_t vfs_interface_for(const char *type)
 
 vfs_interface_t vfs_interface_for_device(vdevice_t dev)
 {
-    if (fat12_test(dev)) {
+    if (fat12_test(dev, NULL)) {
         return fat12_init();
     }
     return NULL;

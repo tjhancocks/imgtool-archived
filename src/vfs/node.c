@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vfs/node.h>
+#include <vfs/vfs.h>
 
 vfs_node_t vfs_node_init(vfs_t fs, void *info)
 {

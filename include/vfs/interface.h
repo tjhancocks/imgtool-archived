@@ -20,23 +20,29 @@
   SOFTWARE.
 */
 
-#include <device/virtual.h>
-
 #ifndef VFS_INTERFACE
 #define VFS_INTERFACE
 
+#include <device/virtual.h>
+#include <vfs/node.h>
+
 struct vfs;
+struct vfs_directory;
 
 struct vfs_interface {
     const char *(*type_name)();
     void (*format_device)(vdevice_t dev, const char *name, uint8_t *bootcode);
     void *(*mount_filesystem)(struct vfs *fs);
     void (*unmount_filesystem)(struct vfs *fs);
-    void (*change_directory)(struct vfs *fs, void *);
-    void *(*list_directory)(struct vfs *fs);
-    void (*touch)(struct vfs *fs, const char *name);
-    void (*write)(struct vfs *fs, const char *name, uint8_t *bytes, uint32_t n);
-    void (*mkdir)(struct vfs *fs, const char *name);
+    void (*set_directory)(struct vfs *fs, struct vfs_directory *dir);
+    struct vfs_directory *(*get_directory)(struct vfs *fs);
+    void (*create_file)(struct vfs *fs,
+                        const char *filename,
+                        enum vfs_node_attributes attributes);
+    void (*create_dir)(struct vfs *fs,
+                       const char *name,
+                       enum vfs_node_attributes a);
+    void (*write)(struct vfs *fs, const char *name, void *bytes, uint32_t n);
 };
 
 typedef struct vfs_interface * vfs_interface_t;

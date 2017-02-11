@@ -30,7 +30,7 @@
 void shell_ls(shell_t shell, int argc, const char *argv[])
 {
     // Ignore all arguments. We don't need them.
-    vfs_directory_t dir = vfs_list_directory(shell->device_filesystem);
+    vfs_directory_t dir = vfs_get_directory(shell->device_filesystem);
     if (!dir) {
         fprintf(stderr, "Unable to list directory\n");
         return;
@@ -39,10 +39,11 @@ void shell_ls(shell_t shell, int argc, const char *argv[])
     vfs_node_t node = dir->first;
     while (node && node->state == vfs_node_used) {
         // Get some meta data to help with the display.
-        printf("%c", node->is_directory ? 'D' : '-');
-        printf("%c", node->is_hidden ? 'H' : '-');
-        printf("%c", node->is_readonly ? 'R' : '-');
-        printf("%c", node->is_system ? 'S' : '-');
+        enum vfs_node_attributes vfsa = node->attributes;
+        printf("%c", vfsa & vfs_node_directory_attribute ? 'D' : '-');
+        printf("%c", vfsa & vfs_node_hidden_attribute ? 'H' : '-');
+        printf("%c", vfsa & vfs_node_read_only_attribute ? 'R' : '-');
+        printf("%c", vfsa & vfs_node_system_attribute ? 'S' : '-');
         printf(" %08dB ", node->size);
         printf("%s\n", node->name);
         node = node->next;
