@@ -44,6 +44,14 @@ void shell_ls(shell_t shell, int argc, const char *argv[])
         printf("%c", vfsa & vfs_node_hidden_attribute ? 'H' : '-');
         printf("%c", vfsa & vfs_node_read_only_attribute ? 'R' : '-');
         printf("%c", vfsa & vfs_node_system_attribute ? 'S' : '-');
+        
+        // Get the modification date of the file
+        time_t mod = node->modification_time;
+        struct tm ts = *localtime(&mod);
+        char date_buf[80];
+        strftime(date_buf, sizeof(date_buf), "%Y-%m-%d %H:%M:%S", &ts);
+        printf(" %s", date_buf);
+        
         printf(" %08dB ", node->size);
         printf("%s\n", node->name);
         node = node->next;
