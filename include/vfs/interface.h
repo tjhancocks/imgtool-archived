@@ -67,6 +67,20 @@ struct vfs_interface {
     
     /// Write the specified bytes of data to the named file.
     void (*write)(struct vfs *fs, const char *name, void *bytes, uint32_t n);
+    
+    /// Read the contents of the specified file. This returns the size of the
+    /// file in bytes.
+    uint32_t (*read)(struct vfs *fs, const char *name, void **bytes);
+    
+    /// Force all metadata in the current working directory to be flushed to
+    /// disk.
+    void (*flush_directory)(struct vfs *fs);
+    
+    /// Rename the specified entry in the current working directory.
+    void (*rename)(struct vfs *fs, const char *old, const char *filename);
+    
+    /// Remove the specified enty in the current working directory.
+    void (*remove)(struct vfs *fs, const char *filename);
 };
 
 typedef struct vfs_interface * vfs_interface_t;
