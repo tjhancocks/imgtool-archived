@@ -39,6 +39,7 @@
 #include <shell/init.h>
 #include <shell/rm.h>
 #include <shell/read.h>
+#include <shell/export.h>
 
 void shell_register_commands(shell_t shell)
 {
@@ -50,6 +51,7 @@ void shell_register_commands(shell_t shell)
     shell_add_command(shell, shell_command_create("unmount", shell_unmount));
     shell_add_command(shell, shell_command_create("touch", shell_touch));
     shell_add_command(shell, shell_command_create("import", shell_import));
+    shell_add_command(shell, shell_command_create("export", shell_export));
     shell_add_command(shell, shell_command_create("write", shell_write));
     shell_add_command(shell, shell_command_create("read", shell_read));
     shell_add_command(shell, shell_command_create("mkdir", shell_mkdir));
