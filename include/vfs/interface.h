@@ -30,18 +30,42 @@ struct vfs;
 struct vfs_directory;
 
 struct vfs_interface {
+    /// Reports the type name of the filesystem. This will be something like
+    /// `fat12` or `ext2`, etc.
     const char *(*type_name)();
+    
+    /// Invokes a formatting of the device as the specified filesystem. A volume
+    /// label and custom bootcode can be provided.
     void (*format_device)(vdevice_t dev, const char *name, uint8_t *bootcode);
+    
+    /// Mounts the filesystem in question. This action may vary from filesystem
+    /// to filesystem, but will generally load all root directory metadata.
     void *(*mount_filesystem)(struct vfs *fs);
+    
+    /// Cleans up the virtual file system and destroys all concrete filesystem
+    /// structures left in place.
     void (*unmount_filesystem)(struct vfs *fs);
+    
+    /// Sets the current working directory of the filesystem.
     void (*set_directory)(struct vfs *fs, struct vfs_directory *dir);
+    
+    /// Gets the current working directory of the filesystem.
     struct vfs_directory *(*get_directory)(struct vfs *fs);
+    
+    /// Create a new directory entry in the current working directory with the
+    /// specified file name and attributes. This is absent any form of data.
     void (*create_file)(struct vfs *fs,
                         const char *filename,
                         enum vfs_node_attributes attributes);
+    
+    /// Create a new directory entry in the current working directory with the
+    /// specified file name and attributes. This is to explicitly create a
+    /// directory.
     void (*create_dir)(struct vfs *fs,
                        const char *name,
                        enum vfs_node_attributes a);
+    
+    /// Write the specified bytes of data to the named file.
     void (*write)(struct vfs *fs, const char *name, void *bytes, uint32_t n);
 };
 
