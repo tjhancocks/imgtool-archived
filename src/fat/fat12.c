@@ -23,6 +23,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
 
 #include <fat/fat12.h>
 #include <fat/fat12-structures.h>
@@ -177,6 +179,31 @@ enum vfs_node_attributes fat12_translate_to_vfs_attributes(uint8_t attr)
     vfsa |= attr & fat12_attribute_directory ? vfs_node_directory_attribute : 0;
     vfsa |= attr & fat12_attribute_system ? vfs_node_system_attribute : 0;
     return vfsa;
+}
+
+
+#pragma mark - FAT Date Calculations
+
+uint16_t fat12_date_from_posix(time_t posix)
+{
+    struct tm ts = *localtime(&posix);
+    
+    uint32_t year = ((1900 + ts.tm_year) - 1980);
+    uint32_t month = ts.tm_mon + 1;
+    uint32_t day = ts.tm_mday;
+    
+    return ((year << 9) & 0xFE00) | ((month << 5) & 0x01E0) | (day & 0x001F);
+}
+
+uint16_t fat12_time_from_posix(time_t posix)
+{
+    struct tm ts = *localtime(&posix);
+    
+    uint32_t hour = ts.tm_hour;
+    uint32_t min = ts.tm_min;
+    uint32_t sec = ts.tm_sec;
+    
+    return ((hour << 11) & 0xF800) | ((min << 5) & 0x07E0) | (sec & 0x001F);
 }
 
 
@@ -990,6 +1017,15 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     sfn->attribute = attributes;
     sfn->first_cluster = cluster;
     sfn->size = size;
+    
+    // Set the creation time.
+    time_t now = time(NULL);
+    sfn->cdate = fat12_date_from_posix(now);
+    sfn->mdate = sfn->cdate;
+    sfn->adate = sfn->adate;
+    
+    sfn->ctime = fat12_time_from_posix(now);
+    sfn->mtime = sfn->ctime;
     
     // Return the directory entry to the caller
     return sfn;
