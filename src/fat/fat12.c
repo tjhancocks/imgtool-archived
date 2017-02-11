@@ -88,7 +88,9 @@ vfs_node_t fat12_get_file(vfs_t fs,
                           const char *name,
                           uint8_t create_missing,
                           uint8_t creation_attributes);
+
 void fat12_file_write(vfs_t fs, const char *name, void *data, uint32_t n);
+uint32_t fat12_file_read(vfs_t fs, const char *name, void **data);
 
 void fat12_create_file(vfs_t, const char *, enum vfs_node_attributes);
 void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
@@ -115,6 +117,7 @@ vfs_interface_t fat12_init()
     fs->set_directory = fat12_set_directory;
 
     fs->write = fat12_file_write;
+    fs->read = fat12_file_read;
 
     fs->create_file = fat12_create_file;
     fs->create_dir = fat12_create_dir;
@@ -1029,6 +1032,71 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     
     // Flush the working directory to reflect changes we've made to an entry.
     fat12_flush(fs);
+}
+
+
+#pragma mark - Cluster Reading
+
+void fat12_read_cluster_data(vfs_t fs,
+                             uint32_t cluster,
+                             void *data,
+                             uint32_t size)
+{
+    assert(fs);
+    
+    fat12_t fat = fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
+    
+    // Read the cluster in to the buffer
+    void *buffer = device_read_sectors(fs->device,
+                                       fat12_sector_for_cluster(fs, cluster),
+                                       bpb->sectors_per_cluster);
+    
+    // Transfer to the data supplied
+    if (data) {
+        memcpy(data, buffer, size);
+    }
+    
+    // Clean up
+    free(buffer);
+}
+
+uint32_t fat12_file_read(vfs_t fs, const char *name, void **data)
+{
+    assert(fs);
+    assert(data);
+    
+    // Get the file in question. If we can't find it then ensure data out is
+    // NULL and return 0.
+    vfs_node_t node = fat12_get_file(fs, name, 0, 0);
+    if (!node) {
+        *data = NULL;
+        return 0;
+    }
+    
+    // Get the directory entry for the file so that we can access cluster
+    // information.
+    fat12_t fat = fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
+    fat12_sfn_t sfn = node->assoc_info;
+    
+    // We now need to allocate enough space for the data to reside.
+    *data = calloc(node->size, sizeof(uint8_t));
+    
+    // Read out data until we have received all the data from the device.
+    uint32_t bytes_received = 0;
+    uint16_t cluster = sfn->first_cluster;
+    uint32_t cluster_size = bpb->bytes_per_sector * bpb->sectors_per_cluster;
+    
+    while (bytes_received < node->size) {
+        uint32_t data_len = MIN(cluster_size, node->size - bytes_received);
+        uint32_t offset = bytes_received;
+        bytes_received += data_len;
+        fat12_read_cluster_data(fs, cluster, (*data) + offset, data_len);
+        cluster = fat12_next_cluster(fs, cluster);
+    }
+    
+    return node->size;
 }
 
 
