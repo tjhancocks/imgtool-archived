@@ -45,10 +45,6 @@ struct vfs_node {
     struct vfs *fs;
     void *assoc_info;
     uint8_t is_dirty;
-    uint8_t is_directory;
-    uint8_t is_hidden;
-    uint8_t is_system;
-    uint8_t is_readonly;
     const char *name;
     uint32_t size;
     enum vfs_node_attributes attributes;

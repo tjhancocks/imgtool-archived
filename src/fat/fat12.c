@@ -169,6 +169,16 @@ uint8_t fat12_translate_from_vfs_attributes(enum vfs_node_attributes vfsa)
     return attr;
 }
 
+enum vfs_node_attributes fat12_translate_to_vfs_attributes(uint8_t attr)
+{
+    enum vfs_node_attributes vfsa = 0;
+    vfsa |= attr & fat12_attribute_hidden ? vfs_node_hidden_attribute : 0;
+    vfsa |= attr & fat12_attribute_readonly ? vfs_node_read_only_attribute : 0;
+    vfsa |= attr & fat12_attribute_directory ? vfs_node_directory_attribute : 0;
+    vfsa |= attr & fat12_attribute_system ? vfs_node_system_attribute : 0;
+    return vfsa;
+}
+
 
 #pragma mark - FAT File System
 
@@ -656,6 +666,63 @@ fat12_directory_info_t fat12_directory_info_make(uint32_t first_sector,
     return info;
 }
 
+enum vfs_node_state fat12_node_state_from_name(uint8_t *name)
+{
+    if (*name == 0xE5) {
+        return vfs_node_available; // Deleted Entry
+    }
+    else if (*name == 0x00) {
+        return vfs_node_unused; // Never used
+    }
+    else {
+        return vfs_node_used; // In use
+    }
+}
+
+vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
+{
+    assert(fs);
+    assert(dir_data);
+    
+    fat12_t fat = fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
+    
+    // Ensure that we're not asking for an entry beyond the end of the
+    // directory.
+    assert(sfni < bpb->directory_entries);
+    
+    // Extract the relavent directory entry.
+    fat12_sfn_t sfn = (fat12_sfn_t)dir_data + (sfni * sizeof(*sfn));
+    const char *sfn_name = (const char *)sfn->name;
+    
+    // Construct the VFS node and copy out all appropriate entries
+    vfs_node_t node = vfs_node_init(fs, sfn);
+    node->attributes = fat12_translate_to_vfs_attributes(sfn->attribute);
+    node->state = fat12_node_state_from_name(sfn->name);
+    node->name = fat12_construct_standard_name_from_sfn(sfn_name);
+    node->size = sfn->size;
+    
+    // Finally return the node to the caller
+    return node;
+}
+
+fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
+{
+    fat12_sfn_t sfn = node->assoc_info;
+    
+    if (node->is_dirty) {
+        sfn->attribute = fat12_translate_from_vfs_attributes(node->attributes);
+        sfn->size = node->size;
+        
+        const char *sfn_name = fat12_construct_short_name(node->name, 1);
+        fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
+        
+        node->is_dirty = 0;
+    }
+    
+    return sfn;
+}
+
 void fat12_load_directory(vfs_t fs, uint32_t first_sector, uint32_t count)
 {
     assert(fs);
@@ -674,36 +741,10 @@ void fat12_load_directory(vfs_t fs, uint32_t first_sector, uint32_t count)
     fat->working_directory = vfs_directory_init(fs, NULL, dir_info);
 
     // Begin parsing through nodes and populating them.
-    // TODO: Consider LFN nodes
     uint32_t entry_count = ((count * fat->bpb->bytes_per_sector) / 32);
     for (uint32_t i = 0; i < entry_count; ++i) {
-
-        // Extract the information into the structure
-        fat12_sfn_t raw_sfn = (fat12_sfn_t)(buffer + (i * sizeof(*raw_sfn)));
-        fat12_sfn_t sfn = calloc(1, sizeof(*sfn));
-        memcpy(sfn, raw_sfn, sizeof(*sfn));
-
-        // Construct a new node from the SFN.
-        vfs_node_t node = vfs_node_init(fs, sfn);
-        node->is_directory = sfn->attribute & fat12_attribute_directory;
-        node->is_system = sfn->attribute & fat12_attribute_system;
-        node->is_hidden = sfn->attribute & fat12_attribute_hidden;
-        node->is_readonly = sfn->attribute & fat12_attribute_readonly;
-
-        // Determine the state of the node.
-        if (raw_sfn->name[0] == 0xE5) {
-            node->state = vfs_node_available;
-        }
-        else if (raw_sfn->name[0] == 0x00) {
-            node->state = vfs_node_unused;
-        }
-        else {
-            node->state = vfs_node_used;
-        }
-
-        // Extract a proper name out of the SFN "TEST    TXT" => "TEST.TXT"
-        const char *sfn_name = (const char *)sfn->name;
-        node->name = fat12_construct_standard_name_from_sfn(sfn_name);
+        // Get the node for the entry number
+        vfs_node_t node = fat12_construct_node_for_sfn(fs, buffer, i);
 
         // Add the node to the directory
         vfs_directory_t dir = fat->working_directory;
@@ -730,20 +771,12 @@ void fat12_flush_directory(vfs_t fs)
     vfs_node_t node = fat->working_directory->first;
     uint32_t offset = 0;
     while (node) {
-
-        // If the node is dirty then we need to reform the SFN.
-        if (node->is_dirty) {
-            // TODO: Form the name correctly
-            fat12_sfn_t sfn = node->assoc_info;
-
-            // Set the attributes of the file accordingly
-            sfn->attribute |= (node->is_directory ? 0x10 : 0x00);
-
-            // Mark the node as no longer dirty.
-            node->is_dirty = 0;
-        }
-
-        memcpy(buffer + offset, node->assoc_info, sizeof(struct fat12_sfn));
+        // Get the SFN back for the node
+        fat12_sfn_t sfn = fat12_commit_node_changes_to_sfn(node);
+        
+        // Copy the SFN out to the buffer in preparation for flushing the
+        // directory.
+        memcpy(buffer + offset, sfn, sizeof(struct fat12_sfn));
         offset += sizeof(struct fat12_sfn);
         node = node->next;
     }
@@ -979,12 +1012,7 @@ void fat12_create_file_node(vfs_node_t node,
     node->is_dirty = 1;
     node->size = size;
     node->state = vfs_node_used;
-    
-    // Set some convieniece flags
-    node->is_directory = attributes & vfs_node_directory_attribute ? 1 : 0;
-    node->is_hidden = attributes & vfs_node_hidden_attribute ? 1 : 0;
-    node->is_readonly = attributes & vfs_node_read_only_attribute ? 1 : 0;
-    node->is_system = attributes & vfs_node_system_attribute ? 1 : 0;
+    node->attributes = attributes;
     
     // The final task is to extract the regular filename from the SFN.
     free((void *)node->name);
