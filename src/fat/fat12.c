@@ -777,8 +777,17 @@ fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
         sfn->mdate = fat12_date_from_posix(node->modification_time);
         sfn->adate = fat12_date_from_posix(node->access_time);
         
-        const char *sfn_name = fat12_construct_short_name(node->name, 1);
-        fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
+        // If the node has been deleted, then just toggle the name bit in the
+        // SFN rather than rebuilding the name. This is due to a slight bug
+        // in the short name constructor which does same strange mangling of
+        // the name...
+        if ((uint8_t)node->name[0] == 0xE5) {
+            sfn->name[0] = 0xe5;
+        }
+        else {
+            const char *sfn_name = fat12_construct_short_name(node->name, 1);
+            fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
+        }
         
         node->is_dirty = 0;
     }
