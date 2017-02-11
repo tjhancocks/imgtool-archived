@@ -93,6 +93,8 @@ void fat12_file_write(vfs_t fs, const char *name, void *data, uint32_t n);
 void fat12_create_file(vfs_t, const char *, enum vfs_node_attributes);
 void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
 
+void fat12_remove_file(vfs_t fs, const char *name);
+
 
 #pragma mark - VFS Interface Creation
 
@@ -114,6 +116,8 @@ vfs_interface_t fat12_init()
 
     fs->create_file = fat12_create_file;
     fs->create_dir = fat12_create_dir;
+    
+    fs->remove = fat12_remove_file;
 
     return fs;
 }
@@ -659,6 +663,8 @@ uint32_t fat12_is_eof_cluster(uint16_t cluster)
 
 uint16_t fat12_next_cluster(vfs_t fs, uint16_t cluster)
 {
+    fat12_load_fat_table(fs);
+    
     // Ensure we only have the lower 12 bits of the cluster number.
     // If the cluster is an end of file cluster then return back immediately.
     cluster = (cluster & fat12_cluster_mask);
@@ -1221,5 +1227,40 @@ void fat12_create_file(vfs_t fs, const char *name, enum vfs_node_attributes a)
 void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a)
 {
     fat12_get_file(fs, name, 1, a | vfs_node_directory_attribute);
+}
+
+void fat12_remove_file(vfs_t fs, const char *name)
+{
+    // Find the file that needs to be removed.
+    vfs_node_t node = fat12_get_file(fs, name, 0, 0);
+    if (!node) {
+        return;
+    }
+    
+    // Mark the first character of the name as 0xE5 to indicate it's been
+    // deleted.
+    *((uint8_t *)node->name) = 0xe5;
+    node->is_dirty = 1;
+    node->state = vfs_node_available;
+    
+    // We also need to destroy the cluster chain and mark everything as
+    // available.
+    fat12_sfn_t sfn = node->assoc_info;
+    sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
+                                                        sfn->first_cluster,
+                                                        0);
+    
+    // Check the first cluster. If it is not an EOF, then look up the cluster,
+    // and set it to be free, and mark the first cluster as EOF.
+    if (sfn->first_cluster != fat12_cluster_ref_eof) {
+        fat12_fat_table_set_entry(fs,
+                                  sfn->first_cluster,
+                                  fat12_cluster_ref_free);
+        sfn->first_cluster = fat12_cluster_ref_eof;
+    }
+    
+    // Finally force the contents of the directory to be flushed to the device.
+    fat12_flush_fat_table(fs);
+    fat12_flush_directory(fs);
 }
 
