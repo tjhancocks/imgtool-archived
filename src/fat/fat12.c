@@ -740,7 +740,8 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
     assert(sfni < bpb->directory_entries);
     
     // Extract the relavent directory entry.
-    fat12_sfn_t sfn = (fat12_sfn_t)dir_data + (sfni * sizeof(*sfn));
+    uintptr_t ptr = (uintptr_t)dir_data + (sfni * sizeof(struct fat12_sfn));
+    fat12_sfn_t sfn = (fat12_sfn_t)ptr;
     const char *sfn_name = (const char *)sfn->name;
     
     // Construct the VFS node and copy out all appropriate entries
