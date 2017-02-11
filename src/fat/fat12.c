@@ -95,6 +95,8 @@ void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
 
 void fat12_remove_file(vfs_t fs, const char *name);
 
+void fat12_flush(vfs_t fs);
+
 
 #pragma mark - VFS Interface Creation
 
@@ -118,6 +120,8 @@ vfs_interface_t fat12_init()
     fs->create_dir = fat12_create_dir;
     
     fs->remove = fat12_remove_file;
+    
+    fs->flush_directory = fat12_flush;
 
     return fs;
 }
@@ -1024,8 +1028,7 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     }
     
     // Flush the working directory to reflect changes we've made to an entry.
-    fat12_flush_fat_table(fs);
-    fat12_flush_directory(fs);
+    fat12_flush(fs);
 }
 
 
@@ -1221,8 +1224,7 @@ vfs_node_t fat12_get_file(vfs_t fs,
     free((void *)reg);
     
     // Flush the working directory to reflect changes
-    fat12_flush_fat_table(fs);
-    fat12_flush_directory(fs);
+    fat12_flush(fs);
     
     // Return the node to the caller
     return node;
@@ -1269,7 +1271,14 @@ void fat12_remove_file(vfs_t fs, const char *name)
     }
     
     // Finally force the contents of the directory to be flushed to the device.
+    fat12_flush(fs);
+}
+
+
+#pragma mark - Metadata Flushing
+
+void fat12_flush(vfs_t fs)
+{
     fat12_flush_fat_table(fs);
     fat12_flush_directory(fs);
 }
-
