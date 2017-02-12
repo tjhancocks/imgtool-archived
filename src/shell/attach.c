@@ -98,6 +98,10 @@ void shell_attach(shell_t shell, int argc, const char *argv[])
     // Create the device.
     shell->attached_device = device_create(path, media);
     free((void *)path);
+    
+    // Log it
+    printf("Attached device \"%s\" with media type 0x%02x.\n",
+           shell->attached_device->path, shell->attached_device->media);
 }
 
 void shell_detach(shell_t shell, int argc, const char *argv[])

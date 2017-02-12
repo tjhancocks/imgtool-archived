@@ -90,5 +90,8 @@ void shell_init_dev(shell_t shell, int argc, const char *argv[])
     // TODO: Possible check here to ensure floppy disk values make sense?
     
     // Perform the operation
+    printf("Initialising the device with %d sectors and %d bytes per sector...",
+           count, bps);
     device_init(shell->attached_device, bps, count);
+    printf(" done!\n");
 }
