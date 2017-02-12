@@ -90,7 +90,7 @@ const char *vfs_pwd(vfs_t vfs)
     }
 }
 
-struct vfs_directory *vfs_get_directory(vfs_t vfs)
+vfs_node_t vfs_get_directory(vfs_t vfs)
 {
     assert(vfs);
     if (vfs->assoc_info) {

@@ -63,5 +63,5 @@ path_node_t vfs_construct_path(const char *path)
         return NULL;
     }
     
-    return NULL
+    return NULL;
 }

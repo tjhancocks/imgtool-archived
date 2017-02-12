@@ -24,19 +24,18 @@
 #include <shell/shell.h>
 
 #include <vfs/vfs.h>
-#include <vfs/directory.h>
 #include <vfs/node.h>
 
 int shell_ls(shell_t shell, int argc, const char *argv[])
 {
     // Ignore all arguments. We don't need them.
-    vfs_directory_t dir = vfs_get_directory(shell->device_filesystem);
-    if (!dir) {
+    vfs_node_t dir = vfs_get_directory(shell->device_filesystem);
+    if (!dir || !(dir && dir->attributes & vfs_node_directory_attribute)) {
         fprintf(stderr, "Unable to list directory\n");
         return SHELL_ERROR_CODE;
     }
     
-    vfs_node_t node = dir->first;
+    vfs_node_t node = dir->first_child;
     while (node && node->state == vfs_node_used) {
         // Get some meta data to help with the display.
         enum vfs_node_attributes vfsa = node->attributes;
@@ -55,7 +54,7 @@ int shell_ls(shell_t shell, int argc, const char *argv[])
         printf(" %08dB ", node->size);
         printf("%s\n", node->name);
        
-        node = node->next;
+        node = node->next_sibling;
     }
     
     return SHELL_OK;

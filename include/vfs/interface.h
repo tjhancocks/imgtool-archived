@@ -27,7 +27,6 @@
 #include <vfs/node.h>
 
 struct vfs;
-struct vfs_directory;
 
 struct vfs_interface {
     /// Reports the type name of the filesystem. This will be something like
@@ -47,10 +46,10 @@ struct vfs_interface {
     void (*unmount_filesystem)(struct vfs *fs);
     
     /// Sets the current working directory of the filesystem.
-    void (*set_directory)(struct vfs *fs, struct vfs_directory *dir);
+    void (*set_directory)(struct vfs *fs, vfs_node_t dir);
     
     /// Gets the current working directory of the filesystem.
-    struct vfs_directory *(*get_directory)(struct vfs *fs);
+    vfs_node_t (*get_directory)(struct vfs *fs);
     
     /// Create a new directory entry in the current working directory with the
     /// specified file name and attributes. This is absent any form of data.
@@ -74,7 +73,7 @@ struct vfs_interface {
     
     /// Force all metadata in the current working directory to be flushed to
     /// disk.
-    void (*flush_directory)(struct vfs *fs);
+    void (*flush_directory)(vfs_node_t directory);
     
     /// Rename the specified entry in the current working directory.
     void (*rename)(struct vfs *fs, const char *old, const char *filename);

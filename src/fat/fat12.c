@@ -30,7 +30,6 @@
 #include <fat/fat12-structures.h>
 
 #include <vfs/vfs.h>
-#include <vfs/directory.h>
 #include <vfs/node.h>
 #include <vfs/path.h>
 
@@ -81,8 +80,8 @@ void fat12_unmount(vfs_t fs);
 
 void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode);
 
-vfs_directory_t fat12_get_directory(vfs_t fs);
-void fat12_set_directory(vfs_t fs, vfs_directory_t dir);
+vfs_node_t fat12_get_directory(vfs_t fs);
+void fat12_set_directory(vfs_t fs, vfs_node_t directory);
 
 vfs_node_t fat12_get_file(vfs_t fs,
                           const char *name,
@@ -97,7 +96,7 @@ void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
 
 void fat12_remove_file(vfs_t fs, const char *name);
 
-void fat12_flush(vfs_t fs);
+void fat12_flush(vfs_node_t directory);
 
 
 #pragma mark - VFS Interface Creation
@@ -698,23 +697,10 @@ uint32_t fat12_sector_for_cluster(vfs_t fs, uint16_t cluster)
 
 #pragma mark - Directories
 
-void fat12_current_directory(vfs_t fs, uint32_t *first_sector, uint32_t *count)
-{
-    assert(fs);
-    assert(first_sector);
-    assert(count);
-
-    fat12_t fat = fs->assoc_info;
-
-    // TODO: proper implementation here...
-    *first_sector = fat12_root_directory_start(fat->bpb);
-    *count = fat12_root_directory_size(fat->bpb);
-}
-
 void fat12_destroy_working_directory(fat12_t fat)
 {
     assert(fat);
-    vfs_directory_destroy(fat->working_directory);
+    vfs_node_destroy(fat->working_directory);
     fat->working_directory = NULL;
 }
 
@@ -756,16 +742,19 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
     uintptr_t ptr = (uintptr_t)dir_data + (sfni * sizeof(struct fat12_sfn));
     fat12_sfn_t sfn = (fat12_sfn_t)ptr;
     const char *sfn_name = (const char *)sfn->name;
+    const char *name = fat12_construct_standard_name_from_sfn(sfn_name);
+    uint8_t attributes = fat12_translate_to_vfs_attributes(sfn->attribute);
+    enum vfs_node_state state = fat12_node_state_from_name(sfn->name);
     
     // Construct the VFS node and copy out all appropriate entries
-    vfs_node_t node = vfs_node_init(fs, sfn);
-    node->attributes = fat12_translate_to_vfs_attributes(sfn->attribute);
-    node->state = fat12_node_state_from_name(sfn->name);
-    node->name = fat12_construct_standard_name_from_sfn(sfn_name);
+    vfs_node_t node = vfs_node_init(fs, name, attributes, state, sfn, NULL);
     node->size = sfn->size;
     node->creation_time = fat12_date_time_to_posix(sfn->cdate, sfn->ctime);
     node->modification_time = fat12_date_time_to_posix(sfn->mdate, sfn->mtime);
     node->access_time = fat12_date_time_to_posix(sfn->adate, 0);
+    
+    // Clean up
+    free((void *)name);
     
     // Finally return the node to the caller
     return node;
@@ -773,11 +762,11 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
 
 fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
 {
-    fat12_sfn_t sfn = node->assoc_info;
+    fat12_sfn_t sfn = node->assoc_node_info;
     
     if (node->is_dirty) {
         sfn->attribute = fat12_translate_from_vfs_attributes(node->attributes);
-        sfn->size = node->size;
+        sfn->size = (uint32_t)node->size;
         sfn->ctime = fat12_time_from_posix(node->creation_time);
         sfn->cdate = fat12_date_from_posix(node->creation_time);
         sfn->mtime = fat12_time_from_posix(node->modification_time);
@@ -803,52 +792,65 @@ fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
     return sfn;
 }
 
-void fat12_load_directory(vfs_t fs, uint32_t first_sector, uint32_t count)
+void fat12_load_directory(vfs_t fs, vfs_node_t directory)
 {
     assert(fs);
 
     fat12_t fat = fs->assoc_info;
 
     // Clean up the previous directory
-    fat12_destroy_working_directory(fat);
+    if (fat->working_directory != fat->root_directory) {
+        fat12_destroy_working_directory(fat);
+    }
 
     // Read the data from the device for the directory
-    uint8_t *buffer = device_read_sectors(fs->device, first_sector, count);
-
-    // Create the working directory and prepare to populate it with nodes.
-    fat12_directory_info_t dir_info = fat12_directory_info_make(first_sector,
-                                                                count);
-    fat->working_directory = vfs_directory_init(fs, NULL, dir_info);
+    fat12_directory_info_t info = directory->assoc_directory_info;
+    if (!info) {
+        fat12_sfn_t sfn = directory->assoc_node_info;
+        uint32_t cluster = sfn->first_cluster;
+        uint32_t first_sector = fat12_sector_for_cluster(fs, cluster);
+        uint32_t count = fat12_root_directory_size(fat->bpb);
+        info = fat12_directory_info_make(first_sector, count);
+        directory->assoc_directory_info = info;
+    }
+    
+    uint8_t *buffer = device_read_sectors(fs->device,
+                                          info->starting_sector,
+                                          info->sector_count);
 
     // Begin parsing through nodes and populating them.
-    uint32_t entry_count = ((count * fat->bpb->bytes_per_sector) / 32);
+    uint32_t entry_count = ((info->sector_count * fat->bpb->bytes_per_sector)
+                            / 32);
     for (uint32_t i = 0; i < entry_count; ++i) {
         // Get the node for the entry number
         vfs_node_t node = fat12_construct_node_for_sfn(fs, buffer, i);
 
         // Add the node to the directory
-        vfs_directory_t dir = fat->working_directory;
-        dir->first = vfs_node_append_node(dir->first, node);
+        vfs_node_add_child(directory, node);
     }
+    
+    // Make the directory the working one.
+    fat->working_directory = directory;
 
     // Clean up the data
     free(buffer);
 }
 
-void fat12_flush_directory(vfs_t fs)
+void fat12_flush_directory(vfs_node_t directory)
 {
-    assert(fs);
+    assert(directory);
+    assert(directory->fs);
 
-    fat12_t fat = fs->assoc_info;
+    fat12_t fat = directory->fs->assoc_info;
 
     // Setup a buffer for the directory
-    fat12_directory_info_t dir_info = fat->working_directory->assoc_info;
-    uint32_t buffer_size = dir_info->sector_count * fat->bpb->bytes_per_sector;
+    fat12_directory_info_t info = fat->working_directory->assoc_directory_info;
+    uint32_t buffer_size = info->sector_count * fat->bpb->bytes_per_sector;
     uint8_t *buffer = calloc(buffer_size, sizeof(*buffer));
 
     // Iterate through the directory nodes and write them back
     // out to the buffer.
-    vfs_node_t node = fat->working_directory->first;
+    vfs_node_t node = directory->first_child;
     uint32_t offset = 0;
     while (node) {
         // Get the SFN back for the node
@@ -858,43 +860,55 @@ void fat12_flush_directory(vfs_t fs)
         // directory.
         memcpy(buffer + offset, sfn, sizeof(struct fat12_sfn));
         offset += sizeof(struct fat12_sfn);
-        node = node->next;
+        node = node->next_sibling;
     }
 
     // Write the sectors out to the device
-    device_write_sectors(fs->device,
-                         dir_info->starting_sector,
-                         dir_info->sector_count,
+    device_write_sectors(directory->fs->device,
+                         info->starting_sector,
+                         info->sector_count,
                          buffer);
 
     // Clean up
     free(buffer);
 }
 
-vfs_directory_t fat12_get_directory(vfs_t fs)
+vfs_node_t fat12_root_directory(vfs_t fs)
+{
+    assert(fs);
+    
+    fat12_t fat = fs->assoc_info;
+    if (!fat->root_directory) {
+        enum vfs_node_attributes attr = (vfs_node_directory_attribute |
+                                         vfs_node_system_attribute);
+        
+        uint32_t root_start = fat12_root_directory_start(fat->bpb);
+        uint32_t root_count = fat12_root_directory_size(fat->bpb);
+        fat12_directory_info_t info = fat12_directory_info_make(root_start,
+                                                                root_count);
+        
+        fat->root_directory = vfs_node_init(fs, "ROOT", attr,
+                                            vfs_node_used, NULL, info);
+    }
+    
+    return fat->root_directory;
+}
+
+vfs_node_t fat12_get_directory(vfs_t fs)
 {
     assert(fs);
     fat12_t fat = fs->assoc_info;
     return fat->working_directory;
 }
 
-void fat12_set_directory(vfs_t fs, vfs_directory_t dir)
+void fat12_set_directory(vfs_t fs, vfs_node_t directory)
 {
-    assert(fs);
-    
-    uint32_t start = 0;
-    uint32_t count = 0;
-
-    if (dir && dir->assoc_info) {
-        fat12_directory_info_t info = dir->assoc_info;
-        start = info->starting_sector;
-        count = info->sector_count;
+    if (directory) {
+        fat12_load_directory(fs, directory);
     }
     else {
-        fat12_current_directory(fs, &start, &count);
+        fat12_load_directory(fs, fat12_root_directory(fs));
     }
-
-    fat12_load_directory(fs, start, count);
 }
 
 
@@ -1009,11 +1023,11 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     // Get the actual directory entry for the file as it will contain useful
     // information. Mark the node as dirty so that we actually flush any
     // changes.
-    fat12_sfn_t sfn = node->assoc_info;
+    fat12_sfn_t sfn = node->assoc_node_info;
     node->is_dirty = 1;
     node->size = n;
-    node->modification_time = time(NULL);
-    node->access_time = time(NULL);
+    vfs_node_update_modification_time(node);
+    vfs_node_update_access_time(node);
     
     // We should now reallocate the cluster chain for the file.
     sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
@@ -1032,7 +1046,7 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     }
     
     // Flush the working directory to reflect changes we've made to an entry.
-    fat12_flush(fs);
+    fat12_flush(fat->working_directory);
 }
 
 
@@ -1079,7 +1093,7 @@ uint32_t fat12_file_read(vfs_t fs, const char *name, void **data)
     // information.
     fat12_t fat = fs->assoc_info;
     fat12_bpb_t bpb = fat->bpb;
-    fat12_sfn_t sfn = node->assoc_info;
+    fat12_sfn_t sfn = node->assoc_node_info;
     
     // We now need to allocate enough space for the data to reside.
     *data = calloc(node->size, sizeof(uint8_t));
@@ -1164,7 +1178,7 @@ void fat12_create_file_node(vfs_node_t node,
 
     // Construct the directory entry first, add it to the node and mark it dirty
     fat12_sfn_t sfn = fat12_dir_entry_new(node->fs, filename, size, fat_attr);
-    node->assoc_info = sfn;
+    node->assoc_node_info = sfn;
     node->is_dirty = 1;
     node->size = size;
     node->state = vfs_node_used;
@@ -1198,7 +1212,7 @@ void fat12_create_directory_node(vfs_node_t node,
     
     // Construct the actual node for the directory.
     fat12_create_file_node(node, filename, size, attributes);
-    fat12_sfn_t sfn = node->assoc_info;
+    fat12_sfn_t sfn = node->assoc_node_info;
     node->size = 0;
     node->is_dirty = 1;
     
@@ -1247,7 +1261,7 @@ vfs_node_t fat12_get_file(vfs_t fs,
     
     // Get the working directory and scan through the files for a match.
     fat12_t fat = fs->assoc_info;
-    vfs_node_t node = fat->working_directory->first;
+    vfs_node_t node = fat->working_directory->first_child;
     vfs_node_t first_available = NULL;
     while (node) {
         
@@ -1272,7 +1286,7 @@ vfs_node_t fat12_get_file(vfs_t fs,
         }
         
         // Nothing matched or significant happened... move on to the next node.
-        node = node->next;
+        node = node->next_sibling;
     }
     
     // Should we attempt to create a node for the file, if no file existed?
@@ -1294,7 +1308,7 @@ vfs_node_t fat12_get_file(vfs_t fs,
     free((void *)reg);
     
     // Flush the working directory to reflect changes
-    fat12_flush(fs);
+    fat12_flush(fat->working_directory);
     
     // Return the node to the caller
     return node;
@@ -1326,7 +1340,7 @@ void fat12_remove_file(vfs_t fs, const char *name)
     
     // We also need to destroy the cluster chain and mark everything as
     // available.
-    fat12_sfn_t sfn = node->assoc_info;
+    fat12_sfn_t sfn = node->assoc_node_info;
     sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
                                                         sfn->first_cluster,
                                                         0);
@@ -1341,14 +1355,16 @@ void fat12_remove_file(vfs_t fs, const char *name)
     }
     
     // Finally force the contents of the directory to be flushed to the device.
-    fat12_flush(fs);
+    fat12_flush(node->parent);
 }
 
 
 #pragma mark - Metadata Flushing
 
-void fat12_flush(vfs_t fs)
+void fat12_flush(vfs_node_t directory)
 {
-    fat12_flush_fat_table(fs);
-    fat12_flush_directory(fs);
+    if (directory) {
+        fat12_flush_fat_table(directory->fs);
+        fat12_flush_directory(directory);
+    }
 }

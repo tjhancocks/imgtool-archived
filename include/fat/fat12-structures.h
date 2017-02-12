@@ -83,7 +83,8 @@ struct vfs_directory;
 struct fat12 {
     fat12_bpb_t bpb;
     uint8_t *fat_data;
-    struct vfs_directory *working_directory;
+    struct vfs_node *root_directory;
+    struct vfs_node *working_directory;
 };
 typedef struct fat12 * fat12_t;
 
