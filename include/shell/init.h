@@ -25,6 +25,6 @@
 
 struct shell;
 
-void shell_init_dev(struct shell *, int, const char *[]);
+int shell_init_dev(struct shell *, int, const char *[]);
 
 #endif

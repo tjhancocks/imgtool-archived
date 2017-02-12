@@ -25,11 +25,13 @@
 #include <shell/echo.h>
 #include <shell/shell.h>
 
-void shell_echo(struct shell *shell, int argc, const char *argv[])
+int shell_echo(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
 
     for (int i = 1; i < argc; ++i) {
         printf("%s\n", argv[i]);
     }
+    
+    return SHELL_OK;
 }

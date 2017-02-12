@@ -25,7 +25,7 @@
 
 struct shell;
 
-void shell_set(struct shell *, int, const char *[]);
-void shell_setu(struct shell *, int, const char *[]);
+int shell_set(struct shell *, int, const char *[]);
+int shell_setu(struct shell *, int, const char *[]);
 
 #endif

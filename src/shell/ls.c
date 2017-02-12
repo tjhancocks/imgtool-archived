@@ -27,13 +27,13 @@
 #include <vfs/directory.h>
 #include <vfs/node.h>
 
-void shell_ls(shell_t shell, int argc, const char *argv[])
+int shell_ls(shell_t shell, int argc, const char *argv[])
 {
     // Ignore all arguments. We don't need them.
     vfs_directory_t dir = vfs_get_directory(shell->device_filesystem);
     if (!dir) {
         fprintf(stderr, "Unable to list directory\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     
     vfs_node_t node = dir->first;
@@ -54,6 +54,9 @@ void shell_ls(shell_t shell, int argc, const char *argv[])
         
         printf(" %08dB ", node->size);
         printf("%s\n", node->name);
+       
         node = node->next;
     }
+    
+    return SHELL_OK;
 }

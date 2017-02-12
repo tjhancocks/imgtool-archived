@@ -44,7 +44,7 @@ static enum vmedia_type _parse_media_type(const char *type)
     }
 }
 
-void shell_attach(shell_t shell, int argc, const char *argv[])
+int shell_attach(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
 
@@ -81,7 +81,7 @@ void shell_attach(shell_t shell, int argc, const char *argv[])
     // it isn't mounted.
     if (shell->attached_device && shell->device_filesystem) {
         fprintf(stderr, "Currently attached device is mounted. Aborting.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     
     // If the no_exist flag is set, then try and determine if the file currently
@@ -91,7 +91,7 @@ void shell_attach(shell_t shell, int argc, const char *argv[])
         if (fp) {
             fclose(fp);
             fprintf(stderr, "Specified file already exists. Aborting.\n");
-            return;
+            return SHELL_ERROR_CODE;
         }
     }
 
@@ -102,23 +102,27 @@ void shell_attach(shell_t shell, int argc, const char *argv[])
     // Log it
     printf("Attached device \"%s\" with media type 0x%02x.\n",
            shell->attached_device->path, shell->attached_device->media);
+    
+    return SHELL_OK;
 }
 
-void shell_detach(shell_t shell, int argc, const char *argv[])
+int shell_detach(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
 
     // Check for an attached device.
     if (!shell->attached_device) {
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     // If the device is mounted then abort the process.
     if (shell->device_filesystem) {
         fprintf(stderr, "Unable to detach mounted device.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     device_destroy(shell->attached_device);
     shell->attached_device = NULL;
+    
+    return SHELL_OK;
 }

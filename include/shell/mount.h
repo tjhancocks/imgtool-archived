@@ -25,7 +25,7 @@
 
 struct shell;
 
-void shell_mount(struct shell *, int, const char *[]);
-void shell_unmount(struct shell *, int, const char *[]);
+int shell_mount(struct shell *, int, const char *[]);
+int shell_unmount(struct shell *, int, const char *[]);
 
 #endif

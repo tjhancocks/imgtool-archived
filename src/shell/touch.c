@@ -26,14 +26,16 @@
 #include <shell/shell.h>
 #include <vfs/vfs.h>
 
-void shell_touch(struct shell *shell, int argc, const char *argv[])
+int shell_touch(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
 
     if (argc != 2) {
         fprintf(stderr, "Expected a single argument for the file name.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     vfs_touch(shell->device_filesystem, argv[1]);
+    
+    return SHELL_OK;
 }

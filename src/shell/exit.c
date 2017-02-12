@@ -25,12 +25,7 @@
 #include <shell/exit.h>
 #include <shell/shell.h>
 
-void shell_exit(struct shell *shell, int argc, const char *argv[])
+int shell_exit(struct shell *shell, int argc, const char *argv[])
 {
-    assert(shell);
-
-    // TODO: Should probably test for a mounted file system here. Not currently
-    // required as the filesystem operations are atomic.
-
-    shell->running = 0;
+    return SHELL_TERMINATE;
 }

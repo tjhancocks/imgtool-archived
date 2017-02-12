@@ -27,13 +27,13 @@
 #include <shell/shell.h>
 #include <vfs/vfs.h>
 
-void shell_read(struct shell *shell, int argc, const char *argv[])
+int shell_read(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
     
     if (argc != 2) {
         fprintf(stderr, "Expected a single argument for the file name.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     
     if (shell->import_buffer) {
@@ -46,4 +46,6 @@ void shell_read(struct shell *shell, int argc, const char *argv[])
                                          &shell->import_buffer);
     
     printf("Read %d bytes from the device.\n", shell->import_buffer_size);
+    
+    return SHELL_OK;
 }

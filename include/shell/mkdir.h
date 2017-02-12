@@ -25,6 +25,6 @@
 
 struct shell;
 
-void shell_mkdir(struct shell *, int, const char *[]);
+int shell_mkdir(struct shell *, int, const char *[]);
 
 #endif

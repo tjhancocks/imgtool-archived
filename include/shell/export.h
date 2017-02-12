@@ -25,6 +25,6 @@
 
 struct shell;
 
-void shell_export(struct shell *, int, const char *[]);
+int shell_export(struct shell *, int, const char *[]);
 
 #endif

@@ -32,7 +32,7 @@
 #define FLOPPY_DEFAULT_BPS      512
 #define FLOPPY_DEFAULT_SECTORS  2880
 
-void shell_init_dev(shell_t shell, int argc, const char *argv[])
+int shell_init_dev(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
     
@@ -41,7 +41,7 @@ void shell_init_dev(shell_t shell, int argc, const char *argv[])
     if (!shell->attached_device) {
         fprintf(stderr, "Please attach a device to initialise.\n");
         fprintf(stderr, "Devices can be attached using the `attach` command\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     
@@ -79,12 +79,12 @@ void shell_init_dev(shell_t shell, int argc, const char *argv[])
     if (bps == 0) {
         fprintf(stderr, "You must specify the bytes per sector.\n");
         fprintf(stderr, "Usage: init -b <bps> -c <count>\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     else if (count == 0) {
         fprintf(stderr, "You must specify the sector count.\n");
         fprintf(stderr, "Usage: init -b <bps> -c <count>\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     
     // TODO: Possible check here to ensure floppy disk values make sense?
@@ -94,4 +94,6 @@ void shell_init_dev(shell_t shell, int argc, const char *argv[])
            count, bps);
     device_init(shell->attached_device, bps, count);
     printf(" done!\n");
+    
+    return SHELL_OK;
 }

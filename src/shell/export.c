@@ -28,18 +28,18 @@
 #include <shell/shell.h>
 #include <common/host.h>
 
-void shell_export(struct shell *shell, int argc, const char *argv[])
+int shell_export(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
     
     if (argc != 2) {
         fprintf(stderr,
                 "Expected a single argument for the path to export to.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     
     if (!shell->import_buffer) {
-        return;
+        return SHELL_ERROR_CODE;
     }
     
     // Open the file, get the size and read the data
@@ -47,7 +47,7 @@ void shell_export(struct shell *shell, int argc, const char *argv[])
     FILE *f = fopen(path, "w");
     if (!f) {
         fprintf(stderr, "Could not create the specified file\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     free((void *)path);
     
@@ -57,4 +57,6 @@ void shell_export(struct shell *shell, int argc, const char *argv[])
     
     printf("Exported %d bytes from the internal buffer\n",
            shell->import_buffer_size);
+    
+    return SHELL_OK;
 }
