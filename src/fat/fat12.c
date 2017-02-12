@@ -341,7 +341,7 @@ void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode)
     bpb->heads = 2; // And again...
     bpb->hidden_sectors = 0;
     bpb->total_sectors_32 = 0; // Unused in FAT12
-    bpb->drive = 0;
+    bpb->drive = (uint8_t)dev->media;
     bpb->nt_reserved = 0;
     bpb->signature = 0x28;
     bpb->volume_id = arc4random_uniform(0xFFFFFFFF);
