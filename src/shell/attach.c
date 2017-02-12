@@ -72,7 +72,7 @@ void shell_attach(shell_t shell, int argc, const char *argv[])
         }
         else {
             free((void *)path);
-            path = (const char *)host_expand_path(optarg);
+            path = (const char *)host_expand_path(argv[optind]);
             optind++;
         }
     }
