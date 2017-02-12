@@ -1,0 +1,6 @@
+# Comment test
+setu NAME "John Smith"
+
+echo $NAME
+
+exit

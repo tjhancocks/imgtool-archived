@@ -30,19 +30,21 @@
 // The Virtual File System Directory is an abstract structure that represents
 // a directory on a concrete file system. It contains the head node of the
 // directory as well as associated information.
+struct vfs_directory;
 struct vfs_directory {
     vfs_t fs;
-    void *assoc_info;
-    uint32_t max_nodes;
+    struct vfs_directory *parent;
     vfs_node_t first;
+    void *assoc_info;
 };
-
 typedef struct vfs_directory * vfs_directory_t;
 
 
 // Construct a new VFS Directory instance with the specified associated
 // information and virtual file system.
-vfs_directory_t vfs_directory_init(vfs_t fs, void *info);
+vfs_directory_t vfs_directory_init(vfs_t fs,
+                                   vfs_directory_t parent,
+                                   void *info);
 
 // Destroy the specified VFS Directory.
 void vfs_directory_destroy(vfs_directory_t dir);

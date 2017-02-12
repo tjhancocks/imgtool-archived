@@ -25,6 +25,6 @@
 
 struct shell;
 
-void shell_echo(struct shell *, int, const char *[]);
+int shell_echo(struct shell *, int, const char *[]);
 
 #endif

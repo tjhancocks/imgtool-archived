@@ -24,8 +24,9 @@
 #define VFS_NODE
 
 #include <stdint.h>
-#include <vfs/vfs.h>
+#include <time.h>
 
+struct vfs;
 struct vfs_node;
 
 enum vfs_node_state {
@@ -34,23 +35,30 @@ enum vfs_node_state {
     vfs_node_used = 2,
 };
 
+enum vfs_node_attributes {
+    vfs_node_read_only_attribute = 0x1,
+    vfs_node_hidden_attribute = 0x2,
+    vfs_node_system_attribute = 0x4,
+    vfs_node_directory_attribute = 0x8,
+};
+
 struct vfs_node {
-    vfs_t fs;
+    struct vfs *fs;
     void *assoc_info;
     uint8_t is_dirty;
-    uint8_t is_directory;
-    uint8_t is_hidden;
-    uint8_t is_system;
-    uint8_t is_readonly;
     const char *name;
     uint32_t size;
+    time_t creation_time;
+    time_t modification_time;
+    time_t access_time;
+    enum vfs_node_attributes attributes;
     enum vfs_node_state state;
     struct vfs_node *next;
 };
 
 typedef struct vfs_node * vfs_node_t;
 
-vfs_node_t vfs_node_init(vfs_t fs, void *info);
+vfs_node_t vfs_node_init(struct vfs *fs, void *info);
 void vfs_node_destroy(vfs_node_t node);
 
 vfs_node_t vfs_node_append_node(vfs_node_t head, vfs_node_t subject);

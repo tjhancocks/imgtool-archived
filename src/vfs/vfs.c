@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <vfs/vfs.h>
+#include <vfs/interface.h>
 
 vfs_t vfs_init(vdevice_t dev, vfs_interface_t interface)
 {
@@ -47,43 +48,41 @@ void vfs_destroy(vfs_t vfs)
     free(vfs);
 }
 
-int vfs_format_device(vfs_t vfs, const char *label)
+vfs_t vfs_mount(vdevice_t dev)
 {
-    assert(vfs);
-    
-    if (vfs->assoc_info) {
-        fprintf(stderr, "Unable to format device. Still mounted.\n");
-        return 0;
-    }
-    
-    vfs->filesystem_interface->format_device(vfs, label, NULL);
-    return 1;
-}
-
-void vfs_mount(vfs_t vfs)
-{
-    assert(vfs);
-    vfs->filesystem_interface->unmount_filesystem(vfs);
-    vfs->assoc_info = vfs->filesystem_interface->mount_filesystem(vfs);
-    
-    if (!vfs->assoc_info) {
-        fprintf(stderr, "Valid filesystem not found\n");
+    if (!dev) {
+        return NULL;
     }
 
-    vfs->filesystem_interface->change_directory(vfs, NULL);
+    // Create an interface for the device. If NULL then we do not have a
+    // readable device attached.
+    vfs_interface_t vfsi = vfs_interface_for_device(dev);
+    if (!vfsi) {
+        return NULL;
+    }
+
+    // Setup the VFS.
+    vfs_t vfs = vfs_init(dev, vfsi);
+
+    // Now mount the file system, and ensure the current directory is root.
+    vfs->assoc_info = vfsi->mount_filesystem(vfs);
+    vfsi->set_directory(vfs, NULL);
+
+    return vfs;
 }
 
-void vfs_unmount(vfs_t vfs)
+vfs_t vfs_unmount(vfs_t vfs)
 {
-    assert(vfs);
-    vfs->filesystem_interface->unmount_filesystem(vfs);
+    if (vfs) {
+        vfs->filesystem_interface->unmount_filesystem(vfs);
+    }
+    return NULL;
 }
 
 
 const char *vfs_pwd(vfs_t vfs)
 {
-    assert(vfs);
-    if (vfs->assoc_info) {
+    if (vfs && vfs->assoc_info) {
         return "/";
     }
     else {
@@ -91,11 +90,11 @@ const char *vfs_pwd(vfs_t vfs)
     }
 }
 
-struct vfs_directory *vfs_list_directory(vfs_t vfs)
+struct vfs_directory *vfs_get_directory(vfs_t vfs)
 {
     assert(vfs);
     if (vfs->assoc_info) {
-        return vfs->filesystem_interface->list_directory(vfs);
+        return vfs->filesystem_interface->get_directory(vfs);
     }
     return NULL;
 }
@@ -103,17 +102,30 @@ struct vfs_directory *vfs_list_directory(vfs_t vfs)
 void vfs_touch(vfs_t vfs, const char *name)
 {
     assert(vfs);
-    vfs->filesystem_interface->touch(vfs, name);
+    vfs->filesystem_interface->create_file(vfs, name, 0);
 }
 
 void vfs_mkdir(vfs_t vfs, const char *name)
 {
     assert(vfs);
-    vfs->filesystem_interface->mkdir(vfs, name);
+    vfs->filesystem_interface->create_dir(vfs, name, 0);
 }
 
 void vfs_write(vfs_t vfs, const char *name, uint8_t *bytes, uint32_t size)
 {
+    assert(vfs);
     vfs_touch(vfs, name);
     vfs->filesystem_interface->write(vfs, name, bytes, size);
+}
+
+uint32_t vfs_read(vfs_t vfs, const char *name, uint8_t **bytes)
+{
+    assert(vfs);
+    return vfs->filesystem_interface->read(vfs, name, (void **)bytes);
+}
+
+void vfs_remove(vfs_t vfs, const char *name)
+{
+    assert(vfs);
+    vfs->filesystem_interface->remove(vfs, name);
 }

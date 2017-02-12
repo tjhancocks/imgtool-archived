@@ -27,13 +27,20 @@
 
 #include <vfs/vfs.h>
 #include <shell/scripting.h>
+#include <shell/variable.h>
+
+#define SHELL_OK            0
+#define SHELL_ERROR_CODE    1
+#define SHELL_TERMINATE     2
 
 struct shell {
-    // File System
-    vfs_t filesystem;
-
-    // Commands
+    // Runtime
+    vdevice_t attached_device;
+    vfs_t device_filesystem;
     shell_command_t first_command;
+    shell_variable_t first_variable;
+    shell_script_t script;
+    const char *image_path;
     
     // User Prompts
     uint32_t buffer_size;
@@ -41,16 +48,17 @@ struct shell {
     // Import Buffer
     uint32_t import_buffer_size;
     uint8_t *import_buffer;
-    
-    // Flags
-    uint8_t running:1;
-    uint8_t reserved:7;
 };
 typedef struct shell * shell_t;
 
-shell_t shell_init(vfs_t vfs);
+shell_t shell_init(shell_variable_t vars,
+                   shell_script_t script,
+                   const char *image_path);
 void shell_do(shell_t shell);
 
 void shell_add_command(shell_t shell, shell_command_t command);
+
+void shell_add_variable(shell_t shell, shell_variable_t variable);
+shell_variable_t shell_find_variable(shell_t shell, const char *symbol);
 
 #endif

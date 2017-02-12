@@ -1,7 +1,7 @@
 #imgtool
 
 ![Basic VFS Support](https://img.shields.io/badge/VFS-Basic-green.svg)
-![Partial FAT12 Support](https://img.shields.io/badge/FAT12-Partial-yellow.svg)
+![Basic FAT12 Support](https://img.shields.io/badge/FAT12-Basic-green.svg)
 ![No FAT16 Support](https://img.shields.io/badge/FAT16-None-red.svg)
 ![No FAT32 Support](https://img.shields.io/badge/FAT32-None-red.svg)
 ![No VFAT Support](https://img.shields.io/badge/VFAT-None-red.svg)

@@ -27,34 +27,30 @@
 #include <shell/shell.h>
 
 #include <vfs/vfs.h>
-#include <fat/fat12.h>
+#include <vfs/interface.h>
 
-void shell_format(struct shell *shell, int argc, const char *argv[])
+int shell_format(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
 
     if (argc != 2) {
         fprintf(stderr, "Expected a single argument for the file system.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
 
-    // load in the new file system.
-    char *label = "";
-    void *old_fs = shell->filesystem->filesystem_interface;
-    shell->filesystem->filesystem_interface = NULL;
-
-    if (strcmp(argv[1], "fat12") == 0) {
-        label = "UNTITLED   ";
-        shell->filesystem->filesystem_interface = fat12_init();
-        vfs_interface_destroy(old_fs);
-    }
-    else {
-        fprintf(stderr, "Unrecognised file system: %s\n", argv[1]);
-        shell->filesystem->filesystem_interface = old_fs;
+    // Setup a temporary file system object that can be used to initialise
+    // the device
+    vfs_interface_t fs = vfs_interface_for(argv[1]);
+    if (!fs) {
+        fprintf(stderr, "Unrecognised file system type: %s\n", argv[1]);
+        return SHELL_ERROR_CODE;
     }
 
-    // perform the formatting
-    if (vfs_format_device(shell->filesystem, label)) {
-        printf("Disk image was successfully formatted\n");
-    }
+    // Format the device. No label or bootcode here.
+    fs->format_device(shell->attached_device, NULL, NULL);
+
+    // Clean up
+    vfs_interface_destroy(fs);
+    
+    return SHELL_OK;
 }

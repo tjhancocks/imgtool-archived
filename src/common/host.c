@@ -18,14 +18,23 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
- */
+*/
 
-#ifndef SHELL_MOUNT
-#define SHELL_MOUNT
+#include <wordexp.h>
+#include <stdlib.h>
+#include <string.h>
 
-struct shell;
+const char *host_expand_path(const char *path)
+{
+    // Perform expansion on the the path.
+    wordexp_t exp_result;
+    wordexp(path, &exp_result, 0);
 
-int shell_mount(struct shell *, int, const char *[]);
-int shell_unmount(struct shell *, int, const char *[]);
+    unsigned long len = strlen(exp_result.we_wordv[0]);
+    char *result = calloc(len + 1, sizeof(*result));
+    memcpy(result, exp_result.we_wordv[0], len);
 
-#endif
+    wordfree(&exp_result);
+
+    return result;
+}

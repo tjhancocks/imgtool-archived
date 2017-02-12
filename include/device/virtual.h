@@ -25,17 +25,25 @@
 
 #include <stdio.h>
 
+enum vmedia_type {
+    vmedia_floppy = 0x00,
+    vmedia_hard_disk = 0x80,
+};
+
 struct vdev {
     const char *path;
     FILE *handle;
     uint32_t sector_size;
+    enum vmedia_type media;
 };
 
 typedef struct vdev * vdevice_t;
 
-vdevice_t device_init(const char *restrict path);
-vdevice_t device_init_blank(const char *restrict path, uint16_t bs, uint32_t n);
+vdevice_t device_create(const char *restrict path, enum vmedia_type media);
 void device_destroy(vdevice_t device);
+
+uint8_t device_is_inited(vdevice_t dev);
+void device_init(vdevice_t dev, uint16_t bps, uint32_t count);
 
 uint32_t device_total_sectors(vdevice_t device);
 

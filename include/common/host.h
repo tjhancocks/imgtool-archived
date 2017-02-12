@@ -18,14 +18,11 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
- */
+*/
 
-#ifndef SHELL_MOUNT
-#define SHELL_MOUNT
+#ifndef COMMON_HOST
+#define COMMON_HOST
 
-struct shell;
-
-int shell_mount(struct shell *, int, const char *[]);
-int shell_unmount(struct shell *, int, const char *[]);
+const char *host_expand_path(const char *path);
 
 #endif

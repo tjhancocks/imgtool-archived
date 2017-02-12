@@ -20,12 +20,11 @@
  SOFTWARE.
  */
 
-#ifndef SHELL_MOUNT
-#define SHELL_MOUNT
+#ifndef SHELL_INIT
+#define SHELL_INIT
 
 struct shell;
 
-int shell_mount(struct shell *, int, const char *[]);
-int shell_unmount(struct shell *, int, const char *[]);
+int shell_init_dev(struct shell *, int, const char *[]);
 
 #endif

@@ -20,8 +20,11 @@
   SOFTWARE.
 */
 
+#include <string.h>
 #include <stdlib.h>
 #include <vfs/interface.h>
+
+#include <fat/fat12.h>
 
 
 vfs_interface_t vfs_interface_init()
@@ -32,4 +35,20 @@ vfs_interface_t vfs_interface_init()
 void vfs_interface_destroy(vfs_interface_t interface)
 {
     free(interface);
+}
+
+vfs_interface_t vfs_interface_for(const char *type)
+{
+    if (strcmp(type, "fat12") == 0) {
+        return fat12_init();
+    }
+    return NULL;
+}
+
+vfs_interface_t vfs_interface_for_device(vdevice_t dev)
+{
+    if (fat12_test(dev, NULL)) {
+        return fat12_init();
+    }
+    return NULL;
 }

@@ -25,9 +25,12 @@
 #include <vfs/directory.h>
 
 
-vfs_directory_t vfs_directory_init(vfs_t fs, void *info)
+vfs_directory_t vfs_directory_init(vfs_t fs,
+                                   vfs_directory_t parent,
+                                   void *info)
 {
     vfs_directory_t dir = calloc(1, sizeof(*dir));
+    dir->parent = parent;
     dir->assoc_info = info;
     dir->fs = fs;
     return dir;
