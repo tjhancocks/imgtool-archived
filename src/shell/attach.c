@@ -22,30 +22,81 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 
 #include <shell/attach.h>
 #include <shell/shell.h>
 #include <device/virtual.h>
 #include <common/host.h>
 
+
+static enum vmedia_type _parse_media_type(const char *type)
+{
+    if (strcmp(type, "fdd") == 0 || strcmp(type, "fd0") == 0) {
+        return vmedia_floppy;
+    }
+    else if (strcmp(type, "hdd") == 0 || strcmp(type, "hd0") == 0) {
+        return vmedia_hard_disk;
+    }
+    else {
+        return vmedia_floppy;
+    }
+}
+
 void shell_attach(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
 
-    if (argc != 2) {
-        fprintf(stderr, "Usage: attach <disk-image-path>\n");
-        return;
+    enum vmedia_type media = vmedia_floppy;
+    int no_exist = 0;
+    const char *path = NULL;
+    
+    int c = 0;
+    optind = 1;
+    while (optind < argc) {
+        if ((c = getopt(argc, (char **)argv, "m:c")) != -1) {
+            switch (c) {
+                case 'm': // The Media type of the image being attached.
+                    media = _parse_media_type(optarg);
+                    break;
+                    
+                case 'c': // The user has indicated that no replace should
+                          // happen.
+                    no_exist = 1;
+                    break;
+                    
+                default:
+                    break;
+            }
+        }
+        else {
+            free((void *)path);
+            path = (const char *)host_expand_path(optarg);
+            optind++;
+        }
     }
-
+    
     // Check for a previous attached device. If one is attached then ensure
     // it isn't mounted.
     if (shell->attached_device && shell->device_filesystem) {
         fprintf(stderr, "Currently attached device is mounted. Aborting.\n");
         return;
     }
+    
+    // If the no_exist flag is set, then try and determine if the file currently
+    // exists. If it does then fail here.
+    if (no_exist) {
+        FILE *fp = fopen(path, "r");
+        if (fp) {
+            fclose(fp);
+            fprintf(stderr, "Specified file already exists. Aborting.\n");
+            return;
+        }
+    }
 
-    const char *path = host_expand_path(argv[1]);
-    shell->attached_device = device_create(path);
+    // Create the device.
+    shell->attached_device = device_create(path, media);
     free((void *)path);
 }
 

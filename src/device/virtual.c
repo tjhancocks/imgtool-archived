@@ -25,7 +25,7 @@
 #include <assert.h>
 #include <device/virtual.h>
 
-vdevice_t device_create(const char *restrict path)
+vdevice_t device_create(const char *restrict path, enum vmedia_type media)
 {
     vdevice_t dev = calloc(1, sizeof(*dev));
 
@@ -36,6 +36,7 @@ vdevice_t device_create(const char *restrict path)
     dev->handle = fopen(dev->path, "rb+");
 
     dev->sector_size = 512;
+    dev->media = media;
 
     return dev;
 }
