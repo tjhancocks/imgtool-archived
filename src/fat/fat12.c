@@ -298,16 +298,19 @@ void fat12_unmount(vfs_t fs)
 
 #pragma mark - FAT Formatting
 
-void fat12_copy_padded_string(char *dst, const void *src, char pad, uint8_t n)
+void fat12_copy_padded_string(char *dst,
+                              const void *src,
+                              uint8_t n,
+                              char pad,
+                              uint8_t pad_n)
 {
     // Fill the destination with the padding characters
-    memset(dst, pad, n);
+    memset(dst, pad, pad_n);
 
     // Copy the source for n bytes or the source length (which ever is less)
     // into the destination.
     if (src) {
-        uint8_t sn = (uint8_t)strlen(src);
-        memcpy(dst, src, sn > n ? n : sn);
+        memcpy(dst, src, n);
     }
 }
 
@@ -320,9 +323,9 @@ void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode)
 
     // Create a new BIOS Parameter Block and populate it.
     fat12_bpb_t bpb = calloc(1, sizeof(*bpb));
-    fat12_copy_padded_string((char *)bpb->jmp, jmp, 0x00, 3);
-    fat12_copy_padded_string((char *)bpb->oem, oem, ' ', 8);
-    fat12_copy_padded_string((char *)bpb->label, label, ' ', 11);
+    fat12_copy_padded_string((char *)bpb->jmp, jmp, 3, 0x00, 3);
+    fat12_copy_padded_string((char *)bpb->oem, oem, 8, ' ', 8);
+    fat12_copy_padded_string((char *)bpb->label, label, 11, ' ', 11);
 
     if (bootcode) {
         memcpy(bpb->boot_code, bootcode, sizeof(bpb->boot_code));
@@ -461,7 +464,7 @@ const char *fat12_construct_short_name(const char *name, uint8_t tn)
     const char *sfn_extension = fat12_convert_to_extension(extension);
 
     // Construct the new short file name.
-    char *sfn = calloc(1, sizeof(*sfn));
+    char *sfn = calloc(11, sizeof(*sfn));
     memcpy(sfn, sfn_filename, 8);
     memcpy(sfn + 8, sfn_extension, 3);
 
@@ -740,7 +743,10 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
     
     // Extract the relavent directory entry.
     uintptr_t ptr = (uintptr_t)dir_data + (sfni * sizeof(struct fat12_sfn));
-    fat12_sfn_t sfn = (fat12_sfn_t)ptr;
+    
+    fat12_sfn_t sfn = calloc(1, sizeof(*sfn));
+    memcpy(sfn, (void *)ptr, sizeof(*sfn));
+    
     const char *sfn_name = (const char *)sfn->name;
     const char *name = fat12_construct_standard_name_from_sfn(sfn_name);
     uint8_t attributes = fat12_translate_to_vfs_attributes(sfn->attribute);
@@ -782,7 +788,7 @@ fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
         }
         else {
             const char *sfn_name = fat12_construct_short_name(node->name, 1);
-            fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
+            fat12_copy_padded_string((void *)sfn->name, sfn_name, 11, ' ', 11);
             free((void *)sfn_name);
         }
         
@@ -1146,7 +1152,7 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     
     // Begin constructing the directory entry.
     fat12_sfn_t sfn = calloc(1, sizeof(*sfn));
-    fat12_copy_padded_string((char *)sfn->name, sfn_name, ' ', 11);
+    fat12_copy_padded_string((char *)sfn->name, sfn_name, 11, ' ', 11);
     free((void *)sfn_name);
     sfn->attribute = attributes;
     sfn->first_cluster = cluster;
@@ -1224,12 +1230,12 @@ void fat12_create_directory_node(vfs_node_t node,
     fat12_sfn_t entries = (fat12_sfn_t)data;
     
     // First entry is `.`
-    fat12_copy_padded_string((char *)entries[0].name, ".", ' ', 11);
+    fat12_copy_padded_string((char *)entries[0].name, ".", 1, ' ', 11);
     entries[0].first_cluster = sfn->first_cluster;
     entries[0].attribute = fat12_attribute_directory;
     
     // Second entry is `..`
-    fat12_copy_padded_string((char *)entries[1].name, "..", ' ', 11);
+    fat12_copy_padded_string((char *)entries[1].name, "..", 2, ' ', 11);
     entries[1].first_cluster = 0x000;
     entries[1].attribute = fat12_attribute_directory;
 
