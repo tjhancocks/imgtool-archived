@@ -29,13 +29,35 @@
 #include <shell/shell.h>
 #include <device/virtual.h>
 
-void shell_init_dev(shell_t shell, int argc, const char *argv[])
+#define FLOPPY_DEFAULT_BPS      512
+#define FLOPPY_DEFAULT_SECTORS  2880
+
+int shell_init_dev(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
+    
+    // Check for an attached device first. We need the media type to correctly
+    // handle this.
+    if (!shell->attached_device) {
+        fprintf(stderr, "Please attach a device to initialise.\n");
+        fprintf(stderr, "Devices can be attached using the `attach` command\n");
+        return SHELL_ERROR_CODE;
+    }
 
+    
+    // Get the arguments and values that were passed to the command.
     uint16_t bps = 0;
     uint32_t count = 0;
-
+    
+    // Before we do that check to see if the device media is a Floppy Disk. If
+    // it is we can infer these values. Set them now so that they can be
+    // overwritten if the user desires.
+    if (shell->attached_device->media == vmedia_floppy) {
+        bps = FLOPPY_DEFAULT_BPS;
+        count = FLOPPY_DEFAULT_SECTORS;
+    }
+    
+    // Parse the arguments...
     int c = 0;
     optind = 1;
     while ((c = getopt(argc, (char **)argv, "b:c:")) != -1) {
@@ -53,25 +75,25 @@ void shell_init_dev(shell_t shell, int argc, const char *argv[])
         }
     }
 
-    // Check to ensure the values are correct
+    // Check to ensure the values are correct. Ensure neither value is 0.
     if (bps == 0) {
         fprintf(stderr, "You must specify the bytes per sector.\n");
         fprintf(stderr, "Usage: init -b <bps> -c <count>\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     else if (count == 0) {
         fprintf(stderr, "You must specify the sector count.\n");
         fprintf(stderr, "Usage: init -b <bps> -c <count>\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
-
-    // Check for an attached device
-    if (!shell->attached_device) {
-        fprintf(stderr, "Please attach a device to initialise.\n");
-        fprintf(stderr, "Devices can be attached using the `attach` command\n");
-        return;
-    }
-
+    
+    // TODO: Possible check here to ensure floppy disk values make sense?
+    
     // Perform the operation
+    printf("Initialising the device with %d sectors and %d bytes per sector...",
+           count, bps);
     device_init(shell->attached_device, bps, count);
+    printf(" done!\n");
+    
+    return SHELL_OK;
 }

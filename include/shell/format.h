@@ -25,6 +25,6 @@
 
 struct shell;
 
-void shell_format(struct shell *, int, const char *[]);
+int shell_format(struct shell *, int, const char *[]);
 
 #endif

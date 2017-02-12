@@ -28,13 +28,13 @@
 #include <shell/shell.h>
 #include <common/host.h>
 
-void shell_import(struct shell *shell, int argc, const char *argv[])
+int shell_import(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
 
     if (argc != 2) {
         fprintf(stderr, "Expected a single argument for the path to import.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     if (shell->import_buffer) {
@@ -47,7 +47,7 @@ void shell_import(struct shell *shell, int argc, const char *argv[])
     FILE *f = fopen(path, "r");
     if (!f) {
         fprintf(stderr, "Could not open the specified file\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     fseek(f, 0L, SEEK_END);
     shell->import_buffer_size = (uint32_t)ftell(f);
@@ -59,4 +59,6 @@ void shell_import(struct shell *shell, int argc, const char *argv[])
     fclose(f);
 
     printf("Imported %d bytes to internal buffer\n", shell->import_buffer_size);
+    
+    return SHELL_OK;
 }

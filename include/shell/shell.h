@@ -29,6 +29,10 @@
 #include <shell/scripting.h>
 #include <shell/variable.h>
 
+#define SHELL_OK            0
+#define SHELL_ERROR_CODE    1
+#define SHELL_TERMINATE     2
+
 struct shell {
     // Runtime
     vdevice_t attached_device;
@@ -44,10 +48,6 @@ struct shell {
     // Import Buffer
     uint32_t import_buffer_size;
     uint8_t *import_buffer;
-    
-    // Flags
-    uint8_t running:1;
-    uint8_t reserved:7;
 };
 typedef struct shell * shell_t;
 

@@ -26,13 +26,13 @@
 #include <shell/variable.h>
 #include <shell/shell.h>
 
-void shell_set(struct shell *shell, int argc, const char *argv[])
+int shell_set(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
     
     if (argc != 3) {
         fprintf(stderr, "Usage: set <variable> <value>\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     
     // Is there an existing variable?
@@ -45,24 +45,25 @@ void shell_set(struct shell *shell, int argc, const char *argv[])
     
     // Set the value of the variable
     shell_variable_set(var, argv[2]);
+    
+    return SHELL_OK;
 }
 
-void shell_setu(struct shell *shell, int argc, const char *argv[])
+int shell_setu(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
     
     if (argc != 3) {
         fprintf(stderr, "Usage: set <variable> <value>\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
     
-    // Is there an existing variable? If so then abort.
+    // Is there an existing variable? If not then set it.
     shell_variable_t var = shell_find_variable(shell, argv[1]);
-    if (var) {
-        return;
+    if (!var) {
+        var = shell_variable_init(argv[1], argv[2]);
+        shell_add_variable(shell, var);
     }
     
-    // Create a variable
-    var = shell_variable_init(argv[1], argv[2]);
-    shell_add_variable(shell, var);
+    return SHELL_OK;
 }

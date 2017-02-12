@@ -29,13 +29,13 @@
 #include <vfs/vfs.h>
 #include <vfs/interface.h>
 
-void shell_format(struct shell *shell, int argc, const char *argv[])
+int shell_format(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
 
     if (argc != 2) {
         fprintf(stderr, "Expected a single argument for the file system.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     // Setup a temporary file system object that can be used to initialise
@@ -43,7 +43,7 @@ void shell_format(struct shell *shell, int argc, const char *argv[])
     vfs_interface_t fs = vfs_interface_for(argv[1]);
     if (!fs) {
         fprintf(stderr, "Unrecognised file system type: %s\n", argv[1]);
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     // Format the device. No label or bootcode here.
@@ -51,4 +51,6 @@ void shell_format(struct shell *shell, int argc, const char *argv[])
 
     // Clean up
     vfs_interface_destroy(fs);
+    
+    return SHELL_OK;
 }

@@ -25,7 +25,7 @@
 
 struct shell;
 
-void shell_attach(struct shell *, int, const char *[]);
-void shell_detach(struct shell *, int, const char *[]);
+int shell_attach(struct shell *, int, const char *[]);
+int shell_detach(struct shell *, int, const char *[]);
 
 #endif

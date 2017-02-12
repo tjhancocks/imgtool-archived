@@ -25,6 +25,6 @@
 
 struct shell;
 
-void shell_touch(struct shell *, int, const char *[]);
+int shell_touch(struct shell *, int, const char *[]);
 
 #endif

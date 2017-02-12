@@ -25,6 +25,6 @@
 
 struct shell;
 
-void shell_read(struct shell *, int, const char *[]);
+int shell_read(struct shell *, int, const char *[]);
 
 #endif

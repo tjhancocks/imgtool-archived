@@ -26,17 +26,19 @@
 #include <shell/shell.h>
 #include <vfs/vfs.h>
 
-void shell_write(struct shell *shell, int argc, const char *argv[])
+int shell_write(struct shell *shell, int argc, const char *argv[])
 {
     assert(shell);
 
     if (argc != 2) {
         fprintf(stderr, "Expected a single argument for the file name.\n");
-        return;
+        return SHELL_ERROR_CODE;
     }
 
     vfs_write(shell->device_filesystem,
               argv[1],
               shell->import_buffer,
               shell->import_buffer_size);
+    
+    return SHELL_OK;
 }

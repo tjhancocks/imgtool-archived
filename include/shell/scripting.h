@@ -24,7 +24,7 @@
 #define SHELL_SCRIPTING
 
 struct shell;
-typedef void(*shell_command_imp_t)(struct shell *, int, const char *[]);
+typedef int(*shell_command_imp_t)(struct shell *, int, const char *[]);
 
 struct shell_command;
 struct shell_command {
@@ -60,6 +60,6 @@ void shell_script_destroy(shell_script_t script);
 
 void shell_script_execute(struct shell *shell, shell_script_t script);
 void shell_statement_resolve(struct shell *shell, shell_statement_t stmt);
-void shell_statement_execute(struct shell *shell, shell_statement_t stmt);
+int shell_statement_execute(struct shell *shell, shell_statement_t stmt);
 
 #endif

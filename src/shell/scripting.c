@@ -196,7 +196,7 @@ void shell_statement_resolve(shell_t shell, shell_statement_t stmt)
     }
 }
 
-void shell_statement_execute(shell_t shell, shell_statement_t stmt)
+int shell_statement_execute(shell_t shell, shell_statement_t stmt)
 {
     assert(shell);
     assert(stmt);
@@ -204,14 +204,14 @@ void shell_statement_execute(shell_t shell, shell_statement_t stmt)
     // We're going to execute the statement. The first argument is the command.
     if (stmt->argc == 0) {
         fprintf(stderr, "Malformed statement. Skipping.\n");
-        return;
+        return SHELL_TERMINATE;
     }
     
     // Search for the command and then execute it.
     shell_command_t cmd = shell_command_for(shell, stmt->argv[0]);
     if (!cmd) {
         fprintf(stderr, "Unrecognised command: %s\n", stmt->argv[0]);
-        return;
+        return SHELL_ERROR_CODE;
     }
-    cmd->impl(shell, stmt->argc, stmt->argv);
+    return cmd->impl(shell, stmt->argc, stmt->argv);
 }

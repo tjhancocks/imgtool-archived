@@ -52,7 +52,6 @@ shell_t shell_init(shell_variable_t vars,
     
     // Configure the shell
     main_shell->buffer_size = SHELL_BUFFER_LEN;
-    main_shell->running = 1;
     main_shell->script = script;
     main_shell->image_path = image_path;
     main_shell->first_variable = vars;
@@ -73,7 +72,8 @@ void shell_do(shell_t shell)
 
     // Start the shell run loop
     char *buffer = malloc(main_shell->buffer_size * sizeof(*buffer));
-    while (main_shell->running) {
+    int err = 0;
+    while (err != SHELL_TERMINATE) {
 
         // Clear the input buffer and ensure it is clean for the next input
         memset(buffer, 0, main_shell->buffer_size * sizeof(buffer));
@@ -88,7 +88,7 @@ void shell_do(shell_t shell)
         shell_statement_t stmt = shell_statement_create(buffer);
         if (stmt) {
             shell_statement_resolve(main_shell, stmt);
-            shell_statement_execute(main_shell, stmt);
+            err = shell_statement_execute(main_shell, stmt);
             shell_statement_destroy(stmt);
             stmt = NULL;
         }
