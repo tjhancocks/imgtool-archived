@@ -794,6 +794,7 @@ fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
         else {
             const char *sfn_name = fat12_construct_short_name(node->name, 1);
             fat12_copy_padded_string((void *)sfn->name, sfn_name, ' ', 11);
+            free((void *)sfn_name);
         }
         
         node->is_dirty = 0;
@@ -1132,6 +1133,7 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     // Begin constructing the directory entry.
     fat12_sfn_t sfn = calloc(1, sizeof(*sfn));
     fat12_copy_padded_string((char *)sfn->name, sfn_name, ' ', 11);
+    free((void *)sfn_name);
     sfn->attribute = attributes;
     sfn->first_cluster = cluster;
     sfn->size = size;
