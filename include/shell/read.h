@@ -21,7 +21,7 @@
  */
 
 #ifndef SHELL_READ
-#define SHELL_RAD
+#define SHELL_READ
 
 struct shell;
 
