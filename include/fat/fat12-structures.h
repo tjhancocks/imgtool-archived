@@ -69,7 +69,7 @@ struct fat12_sfn {
 typedef struct fat12_sfn * fat12_sfn_t;
 
 struct fat12_directory_buffer {
-    uint32_t first_cluster;
+    struct fat12_sfn sfn;
     uint32_t index;
     struct vfs_node *first_child;
     struct vfs_node *last_child;
