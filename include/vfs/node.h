@@ -64,7 +64,7 @@ struct vfs_node {
     time_t access_time;
     
     // Source Information
-    void *assoc_node_info;
+    void *assoc_info;
     
     // Editing
     uint8_t is_dirty:1;

@@ -48,7 +48,12 @@ struct vfs_interface {
     /// Sets the current working directory of the filesystem.
     void (*set_directory)(struct vfs *fs, vfs_node_t dir);
     
-    /// Gets the current working directory of the filesystem.
+    /// Gets a reference that can be used to restore a directory. Not intended
+    /// for use beyond navigating back to a certain location.
+    vfs_node_t (*current_directory)(struct vfs *fs);
+    
+    /// Gets a list of the nodes contained in the current directory of the
+    /// system.
     vfs_node_t (*get_directory_list)(struct vfs *fs);
 
     /// Locate the node with the specified name inside the specified directory.

@@ -37,7 +37,7 @@ vfs_node_t vfs_node_init(struct vfs *fs,
     node->fs = fs;
     node->attributes = attributes;
     node->state = state;
-    node->assoc_node_info = node_info;
+    node->assoc_info = node_info;
     
     size_t name_len = strlen(name);
     node->name = calloc(name_len + 1, sizeof(*node->name));
