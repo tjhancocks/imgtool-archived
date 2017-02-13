@@ -27,7 +27,6 @@
 #include <vfs/node.h>
 
 struct vfs;
-struct vfs_directory;
 
 struct vfs_interface {
     /// Reports the type name of the filesystem. This will be something like
@@ -47,10 +46,13 @@ struct vfs_interface {
     void (*unmount_filesystem)(struct vfs *fs);
     
     /// Sets the current working directory of the filesystem.
-    void (*set_directory)(struct vfs *fs, struct vfs_directory *dir);
+    void (*set_directory)(struct vfs *fs, vfs_node_t dir);
     
     /// Gets the current working directory of the filesystem.
-    struct vfs_directory *(*get_directory)(struct vfs *fs);
+    vfs_node_t (*get_directory_list)(struct vfs *fs);
+
+    /// Locate the node with the specified name inside the specified directory.
+    vfs_node_t (*get_node)(struct vfs *fs, const char *name);
     
     /// Create a new directory entry in the current working directory with the
     /// specified file name and attributes. This is absent any form of data.
