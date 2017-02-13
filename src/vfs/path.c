@@ -87,8 +87,14 @@ vfs_path_node_t vfs_construct_path(const char *path)
             }
             else {
                 node = calloc(1, sizeof(*node));
-                last->next = node;
+                if (last) {
+                    last->next = node;
+                }
                 last = node;
+
+                if (!first) {
+                    first = node;
+                }
             }
 
             node->name = component;
