@@ -50,8 +50,8 @@ vfs_node_t vfs_get_directory_list(vfs_t vfs);
 
 void vfs_navigate_to_path(vfs_t vfs, const char *path);
 
-void vfs_touch(vfs_t vfs, const char *name);
-void vfs_mkdir(vfs_t vfs, const char *name);
+void vfs_touch(vfs_t vfs, const char *path);
+int vfs_mkdir(vfs_t vfs, const char *path);
 
 void vfs_write(vfs_t vfs, const char *name, uint8_t *bytes, uint32_t size);
 uint32_t vfs_read(vfs_t vfs, const char *name, uint8_t **bytes);
