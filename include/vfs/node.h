@@ -47,9 +47,7 @@ struct vfs_node {
     struct vfs *fs;
     
     // Directory Tree Related
-    struct vfs_node *parent;
-    struct vfs_node *first_child;
-    struct vfs_node *last_child;
+    struct vfs_node *prev_sibling;
     struct vfs_node *next_sibling;
     
     // Node Name
@@ -67,7 +65,6 @@ struct vfs_node {
     
     // Source Information
     void *assoc_node_info;
-    void *assoc_directory_info;
     
     // Editing
     uint8_t is_dirty:1;
@@ -80,13 +77,9 @@ vfs_node_t vfs_node_init(struct vfs *fs,
                          const char *name,
                          enum vfs_node_attributes attributes,
                          enum vfs_node_state state,
-                         void *node_info,
-                         void *dir_info);
+                         void *node_info);
 
 void vfs_node_destroy(vfs_node_t node);
-
-void vfs_node_add_child(vfs_node_t parent, vfs_node_t child);
-void vfs_node_add_sibling(vfs_node_t subject, vfs_node_t sibling);
 
 int vfs_node_test_attribute(vfs_node_t node, enum vfs_node_attributes attr);
 void vfs_node_set_attribute(vfs_node_t node, enum vfs_node_attributes attr);

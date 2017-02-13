@@ -29,13 +29,13 @@
 int shell_ls(shell_t shell, int argc, const char *argv[])
 {
     // Ignore all arguments. We don't need them.
-    vfs_node_t dir = vfs_get_directory(shell->device_filesystem);
-    if (!dir || !(dir && dir->attributes & vfs_node_directory_attribute)) {
+    vfs_node_t dir_list = vfs_get_directory_list(shell->device_filesystem);
+    if (!dir_list) {
         fprintf(stderr, "Unable to list directory\n");
         return SHELL_ERROR_CODE;
     }
     
-    vfs_node_t node = dir->first_child;
+    vfs_node_t node = dir_list;
     while (node && node->state == vfs_node_used) {
         // Get some meta data to help with the display.
         enum vfs_node_attributes vfsa = node->attributes;

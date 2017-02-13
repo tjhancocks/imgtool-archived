@@ -68,23 +68,17 @@ struct fat12_sfn {
 } __attribute__((packed));
 typedef struct fat12_sfn * fat12_sfn_t;
 
-
-struct fat12_directory_info {
-    // The following fields define the location and size of the directory
-    // contents.
-    uint16_t first_cluster;
-    uint32_t starting_sector;
-    uint32_t sector_count;
+struct fat12_directory_buffer {
+    uint32_t first_cluster;
+    uint32_t index;
+    struct vfs_node *first_child;
+    struct vfs_node *last_child;
 };
-typedef struct fat12_directory_info * fat12_directory_info_t;
-
-struct vfs_directory;
 
 struct fat12 {
     fat12_bpb_t bpb;
     uint8_t *fat_data;
-    struct vfs_node *root_directory;
-    struct vfs_node *working_directory;
+    struct fat12_directory_buffer current_dir;
 };
 typedef struct fat12 * fat12_t;
 

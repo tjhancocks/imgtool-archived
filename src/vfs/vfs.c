@@ -90,11 +90,11 @@ const char *vfs_pwd(vfs_t vfs)
     }
 }
 
-vfs_node_t vfs_get_directory(vfs_t vfs)
+vfs_node_t vfs_get_directory_list(vfs_t vfs)
 {
     assert(vfs);
     if (vfs->assoc_info) {
-        return vfs->filesystem_interface->get_directory(vfs);
+        return vfs->filesystem_interface->get_directory_list(vfs);
     }
     return NULL;
 }

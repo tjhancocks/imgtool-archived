@@ -30,8 +30,7 @@ vfs_node_t vfs_node_init(struct vfs *fs,
                          const char *name,
                          enum vfs_node_attributes attributes,
                          enum vfs_node_state state,
-                         void *node_info,
-                         void *dir_info)
+                         void *node_info)
 {
     vfs_node_t node = calloc(1, sizeof(*node));
     
@@ -39,7 +38,6 @@ vfs_node_t vfs_node_init(struct vfs *fs,
     node->attributes = attributes;
     node->state = state;
     node->assoc_node_info = node_info;
-    node->assoc_directory_info = dir_info;
     
     size_t name_len = strlen(name);
     node->name = calloc(name_len + 1, sizeof(*node->name));
@@ -51,39 +49,20 @@ vfs_node_t vfs_node_init(struct vfs *fs,
 void vfs_node_destroy(vfs_node_t node)
 {
     if (node) {
+        vfs_node_destroy(node->next_sibling);
         free((void *)node->name);
     }
     free(node);
 }
 
 
-#pragma mark - Children / Parent
-
-void vfs_node_add_child(vfs_node_t parent, vfs_node_t child)
-{
-    if (!parent || !child) {
-        return;
-    }
-    
-    child->parent = parent;
-    
-    if (parent->last_child) {
-        parent->last_child->next_sibling = child;
-    }
-    parent->last_child = child;
-    
-    if (!parent->first_child) {
-        parent->first_child = child;
-    }
-}
+#pragma mark - Sibling Nodes (Linked List)
 
 void vfs_node_add_sibling(vfs_node_t subject, vfs_node_t sibling)
 {
     if (!subject || !sibling) {
         return;
     }
-    
-    sibling->parent = subject->parent;
     
     vfs_node_t node = subject;
     while (node->next_sibling) {

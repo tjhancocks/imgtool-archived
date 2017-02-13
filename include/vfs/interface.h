@@ -49,10 +49,10 @@ struct vfs_interface {
     void (*set_directory)(struct vfs *fs, vfs_node_t dir);
     
     /// Gets the current working directory of the filesystem.
-    vfs_node_t (*get_directory)(struct vfs *fs);
+    vfs_node_t (*get_directory_list)(struct vfs *fs);
 
     /// Locate the node with the specified name inside the specified directory.
-    vfs_node_t (*get_node)(vfs_node_t dir, const char *name);
+    vfs_node_t (*get_node)(struct vfs *fs, const char *name);
     
     /// Create a new directory entry in the current working directory with the
     /// specified file name and attributes. This is absent any form of data.
@@ -76,7 +76,7 @@ struct vfs_interface {
     
     /// Force all metadata in the current working directory to be flushed to
     /// disk.
-    void (*flush_directory)(vfs_node_t directory);
+    void (*flush_directory)(struct vfs *fs);
     
     /// Rename the specified entry in the current working directory.
     void (*rename)(struct vfs *fs, const char *old, const char *filename);

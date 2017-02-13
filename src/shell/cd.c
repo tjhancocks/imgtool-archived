@@ -35,15 +35,15 @@ int shell_cd(shell_t shell, int argc, const char *argv[])
     vfs_t fs = shell->device_filesystem;
 
     // Ignore all arguments. We don't need them.
-    vfs_node_t dir = vfs_get_directory(fs);
-    if (!dir || !(dir && dir->attributes & vfs_node_directory_attribute)) {
-        fprintf(stderr, "Unknown error occured\n");
+    vfs_node_t dir_list = vfs_get_directory_list(fs);
+    if (!dir_list) {
+        fprintf(stderr, "Unable to search directory for child.\n");
         return SHELL_ERROR_CODE;
     }
     
     // Look up the requested node in the directory. If it exists ensure it
     // is a directory.
-    vfs_node_t node = fs->filesystem_interface->get_node(dir, argv[1]);
+    vfs_node_t node = fs->filesystem_interface->get_node(fs, argv[1]);
     if (!node || !(node && node->attributes & vfs_node_directory_attribute)) {
         fprintf(stderr, "Attempted to access a none directory node\n");
         return SHELL_ERROR_CODE;
