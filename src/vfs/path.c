@@ -78,7 +78,7 @@ vfs_path_node_t vfs_construct_path(const char *path)
 
             // Extract the text for the component
             uint32_t length = i - start;
-            char *component = calloc(length, sizeof(*component));
+            char *component = calloc(length + 1, sizeof(*component));
             memcpy(component, path + start, length);
 
             vfs_path_node_t node = NULL;
