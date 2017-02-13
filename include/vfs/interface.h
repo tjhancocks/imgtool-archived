@@ -68,9 +68,9 @@ struct vfs_interface {
     /// Create a new directory entry in the current working directory with the
     /// specified file name and attributes. This is to explicitly create a
     /// directory.
-    void (*create_dir)(struct vfs *fs,
-                       const char *name,
-                       enum vfs_node_attributes a);
+    vfs_node_t (*create_dir)(struct vfs *fs,
+                             const char *name,
+                             enum vfs_node_attributes a);
     
     /// Write the specified bytes of data to the named file.
     void (*write)(struct vfs *fs, const char *name, void *bytes, uint32_t n);

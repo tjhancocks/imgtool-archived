@@ -95,7 +95,9 @@ void fat12_file_write(vfs_t fs, const char *name, void *data, uint32_t n);
 uint32_t fat12_file_read(vfs_t fs, const char *name, void **data);
 
 void fat12_create_file(vfs_t, const char *, enum vfs_node_attributes);
-void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a);
+vfs_node_t fat12_create_dir(vfs_t fs,
+                            const char *name,
+                            enum vfs_node_attributes a);
 
 void fat12_remove_file(vfs_t fs, const char *name);
 
@@ -1355,9 +1357,11 @@ void fat12_create_file(vfs_t fs, const char *name, enum vfs_node_attributes a)
     fat12_get_file(fs, name, 1, a);
 }
 
-void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a)
+vfs_node_t fat12_create_dir(vfs_t fs,
+                            const char *name,
+                            enum vfs_node_attributes a)
 {
-    fat12_get_file(fs, name, 1, a | vfs_node_directory_attribute);
+    return fat12_get_file(fs, name, 1, a | vfs_node_directory_attribute);
 }
 
 void fat12_remove_file(vfs_t fs, const char *name)
