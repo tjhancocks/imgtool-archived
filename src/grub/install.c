@@ -91,58 +91,159 @@ void *grub_read_file(const char *filepath, size_t *size)
 
 #pragma mark - Compatibility Testing
 
-int grub_test_compatibility(const char *grub_path)
+int grub_test_compatibility(grub_installation_info_t grub)
 {
-    const char *stage1_path = grub_path_get(grub_path, "stage1");
-    
-    // Load in the contents of Stage 1. If they exist then search for the
-    // compatibility version information.
-    size_t stage1_size = 0;
-    uint8_t *stage1_data = grub_read_file(stage1_path, &stage1_size);
-    
     // We're expecting the size to be 512 bytes.
-    if (!stage1_data || stage1_size != 512) {
-        free((void *)stage1_data);
-        free((void *)stage1_path);
-        return 0;
+    if (!grub->stage1_buffer || grub->stage1_size != 512) {
+        return GRUB_ERROR;
+    }
+
+    // We're expecting a copy of stage 2 to exist.
+    if (!grub->stage2_buffer) {
+        return GRUB_ERROR;
     }
     
     // Get the compatibility version from the stage 1 data and compare it to
     // the value baked into the tool.
-    if (stage1_data[GRUB_STAGE1_VERS_OFFS] != GRUB_COMPAT_VERSION_MAJOR &&
-        stage1_data[GRUB_STAGE1_VERS_OFFS + 1] != GRUB_COMPAT_VERSION_MINOR)
+    uint8_t s1_major = grub->stage1_buffer[GRUB_STAGE1_VERS_OFFS];
+    uint8_t s1_minor = grub->stage1_buffer[GRUB_STAGE1_VERS_OFFS + 1];
+    if (s1_major != GRUB_COMPAT_VERSION_MAJOR &&
+        s1_minor != GRUB_COMPAT_VERSION_MINOR)
     {
-        free((void *)stage1_data);
-        free((void *)stage1_path);
-        return 0;
+        return GRUB_ERROR;
+    }
+
+    // Check the compatibility version from stage 2.
+    uint8_t s2_major = grub->stage2_buffer[GRUB_STAGE2_VERS_OFFS];
+    uint8_t s2_minor = grub->stage2_buffer[GRUB_STAGE2_VERS_OFFS + 1];
+    if (s2_major != GRUB_COMPAT_VERSION_MAJOR &&
+        s2_minor != GRUB_COMPAT_VERSION_MINOR)
+    {
+        return GRUB_ERROR;
+    }
+
+    // Check the stage 2 id and ensure it is a valid stage 2 binary
+    uint8_t s2_id = grub->stage2_buffer[GRUB_STAGE2_ID];
+    if (s2_id != GRUB_ID_STAGE2) {
+        return GRUB_ERROR;
     }
     
     // At this point assume its compatible
-    free((void *)stage1_data);
-    free((void *)stage1_path);
-    return 1;
+    return GRUB_OK;
 }
 
 
 #pragma mark - Stage 1
 
+void grub_read_stage1(grub_installation_info_t grub)
+{
+    const char *stage1_path = grub_path_get(grub->cfg.source_path, "stage1");
+    grub->stage1_buffer = grub_read_file(stage1_path, &grub->stage1_size);
+}
+
+void grub_specify_boot_drive(grub_installation_info_t grub, enum vmedia_type m)
+{
+    grub->stage1_buffer[GRUB_STAGE1_BOOT_DRIVE] = (m & 0xFF);
+}
+
+void grub_force_lba(grub_installation_info_t grub)
+{
+    grub->stage1_buffer[GRUB_STAGE1_FORCE_LBA] = 0x01;
+}
+
+void grub_enable_boot_drive_workaround(grub_installation_info_t grub)
+{
+    grub->stage1_buffer[GRUB_STAGE1_BOOT_DRIVE_CHK] = 0x90;
+    grub->stage1_buffer[GRUB_STAGE1_BOOT_DRIVE_CHK + 1] = 0x90;
+}
 
 
 #pragma mark - Stage 2
 
+void grub_read_stage2(grub_installation_info_t grub)
+{
+    const char *stage2_path = grub_path_get(grub->cfg.source_path, "stage2");
+    grub->stage2_buffer = grub_read_file(stage2_path, &grub->stage2_size);
+}
+
+void grub_put_stage2(grub_installation_info_t grub)
+{
+    // This is going to involve some acrobatics. We need to ensure we have all
+    // the structure setup for GRUB. Get to the root directory.
+    vfs_t fs = grub->fs;
+    vfs_navigate_to_path(fs, "/");
+
+    // We have a path for the installation destination of GRUB in the info.
+    // Try and make the directory and navigate there.
+    vfs_mkdir(fs, grub->cfg.install_path);
+    vfs_navigate_to_path(fs, grub->cfg.install_path);
+}
+
+void grub_prepare_stage2(grub_installation_info_t grub)
+{
+    grub_specify_boot_drive(grub, grub->fs->device->media);
+    //grub_force_lba(grub);
+
+    // If the media is a hard disk then enable a work around in GRUB. According
+    // to GRUB source code it is for buggy BIOSes which don't correctly report
+    // the boot drive
+    if (grub->fs->device->media == vmedia_hard_disk) {
+        grub_enable_boot_drive_workaround(grub);
+    }
+
+    // Get the basic GRUB infrastructure onto the disk. This will help us
+    // identifying values that are required.
+    grub_put_stage2(grub);
+
+    // Identify the installation address.
+    grub->installaddr = 0x8000;
+
+}
 
 
 #pragma mark - Main Installation
 
 int grub_install(struct vfs *fs, struct grub_configuration cfg)
 {
+    int err = GRUB_OK;
+
+    // Construct an installation object for GRUB. This will keep all our working
+    // data so that it can be passed around.
+    grub_installation_info_t grub = calloc(1, sizeof(*grub));
+    grub->cfg = cfg;
+    grub->fs = fs;
+
+    // Read in GRUB Stage 1 and 2 if the are available.
+    grub_read_stage1(grub);
+    grub_read_stage2(grub);
+
     // The very first thing we need to do here is to confirm that we have a
     // copy of GRUB available to us that provides the necessary components and
     // is compatible.
-    if (!grub_test_compatibility(cfg.source_path)) {
+    if (!grub_test_compatibility(grub)) {
         fprintf(stderr, "A compatible version of GRUB was not found.\n");
-        return 0;
+        err = GRUB_ERROR;
+        goto FINISH_GRUB_INSTALL;
     }
-    
+    printf("Identifier compatible version of GRUB\n");
+
+    // Verify that we have a mount device available to us for use.
+    if (!fs) {
+        fprintf(stderr, "Mounted device not found. Unable to proceed.\n");
+        err = GRUB_ERROR;
+        goto FINISH_GRUB_INSTALL;
+    }
+
+    // We have at least a valid version of GRUB at our disposal.
+    grub_prepare_stage2(grub);
+
+
+FINISH_GRUB_INSTALL:
+    // Clean up and release everything that has been gradually allocated.
+    free(grub->stage1_buffer);
+    free(grub->stage2_buffer);
+    free(grub);
+
+    // At this point report everything as being successful.
     return 1;
 }

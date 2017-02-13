@@ -29,8 +29,6 @@ struct vfs;
 // if the supplied GRUB binaries are compatible with what this tool will do.
 #define GRUB_COMPAT_VERSION_MAJOR           3
 #define GRUB_COMPAT_VERSION_MINOR           2
-#define GRUB_COMPAT_VERSION                 ((GRUB_COMPAT_VERSION_MAJOR << 8) \
-                                            | GRUB_COMPAT_VERSION_MINOR)
 
 
 // The following are a series of offsets in STAGE1. These instruct the tool on
@@ -41,6 +39,22 @@ struct vfs;
 #define GRUB_STAGE1_STAGE2_ADDRESS          0x42
 #define GRUB_STAGE1_STAGE2_SECTOR           0x44
 #define GRUB_STAGE1_STAGE2_SEGMENT          0x48
+#define GRUB_STAGE1_BOOT_DRIVE_CHK          0x4b
+
+// The next group are a series of offsets in STAGE2.
+#define GRUB_STAGE2_VERS_OFFS               0x206
+#define GRUB_STAGE2_INSTALLPART             0x208
+#define GRUB_STAGE2_SAVED_ENT               0x20c
+#define GRUB_STAGE2_ID                      0x210
+#define GRUB_STAGE2_FORCE_LBA               0x211
+#define GRUB_STAGE2_VERS_STR                0x212
+
+// GRUB Binary Identifiers
+#define GRUB_ID_STAGE2                      0
+
+
+#define GRUB_ERROR                          0x00
+#define GRUB_OK                             0x01
 
 struct grub_configuration {
     const char *source_path;
@@ -50,6 +64,19 @@ struct grub_configuration {
     const char *root_name;
     const char *kernel_path;
 };
+
+struct grub_installation_info {
+    struct grub_configuration cfg;
+    struct vfs *fs;
+
+    size_t stage1_size;
+    uint8_t *stage1_buffer;
+    size_t stage2_size;
+    uint8_t *stage2_buffer;
+
+    uint32_t installaddr;
+};
+typedef struct grub_installation_info *grub_installation_info_t;
 
 int grub_install(struct vfs *fs, struct grub_configuration cfg);
 
