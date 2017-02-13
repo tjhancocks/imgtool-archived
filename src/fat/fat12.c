@@ -83,7 +83,10 @@ void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode);
 vfs_node_t fat12_get_directory(vfs_t fs);
 void fat12_set_directory(vfs_t fs, vfs_node_t directory);
 
+vfs_node_t fat12_get_node(vfs_node_t dir, const char *name);
+
 vfs_node_t fat12_get_file(vfs_t fs,
+                          vfs_node_t directory,
                           const char *name,
                           uint8_t create_missing,
                           uint8_t creation_attributes);
@@ -114,6 +117,7 @@ vfs_interface_t fat12_init()
 
     fs->get_directory = fat12_get_directory;
     fs->set_directory = fat12_set_directory;
+    fs->get_node = fat12_get_node;
 
     fs->write = fat12_file_write;
     fs->read = fat12_file_read;
@@ -904,7 +908,7 @@ vfs_node_t fat12_get_directory(vfs_t fs)
 {
     assert(fs);
     fat12_t fat = fs->assoc_info;
-    return fat->working_directory;
+    return fat->working_directory ?: fat12_root_directory(fs);
 }
 
 void fat12_set_directory(vfs_t fs, vfs_node_t directory)
@@ -1020,7 +1024,8 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     
     // We need to search for the get the vfs node for the file. Indicate that it
     // should be made if it does not already exist!
-    vfs_node_t node = fat12_get_file(fs, filename, 1, 0);
+    vfs_node_t directory = fat12_get_directory(fs);
+    vfs_node_t node = fat12_get_file(fs, directory, filename, 1, 0);
     if (!node) {
         fprintf(stderr, "Could not write file. File could not be created!\n");
         return;
@@ -1052,7 +1057,7 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     }
     
     // Flush the working directory to reflect changes we've made to an entry.
-    fat12_flush(fat->working_directory);
+    fat12_flush(directory);
 }
 
 
@@ -1089,7 +1094,8 @@ uint32_t fat12_file_read(vfs_t fs, const char *name, void **data)
     
     // Get the file in question. If we can't find it then ensure data out is
     // NULL and return 0.
-    vfs_node_t node = fat12_get_file(fs, name, 0, 0);
+    vfs_node_t directory = fat12_get_directory(fs);
+    vfs_node_t node = fat12_get_file(fs, directory, name, 0, 0);
     if (!node) {
         *data = NULL;
         return 0;
@@ -1254,20 +1260,39 @@ uint8_t fat12_is_node_available(vfs_node_t node)
 
 #pragma mark - High Level File Support
 
+vfs_node_t fat12_get_node(vfs_node_t directory, const char *name)
+{
+    // There are a couple of special names that we should handle.
+    if (strcmp(name, ".") == 0) {
+        // The current directory
+        return directory;
+    }
+    else if (strcmp(name, "..") == 0) {
+        // The parent directory.
+        return directory->parent;
+    }
+    else {
+        // Return the sub directory if it exists.
+        return fat12_get_file(directory->fs, directory, name, 0, 0);
+    }
+}
+
 vfs_node_t fat12_get_file(vfs_t fs,
+                          vfs_node_t directory,
                           const char *name,
                           uint8_t create_missing,
                           uint8_t creation_attributes)
 {
-    assert(fs);
+    if (!directory) {
+        directory = fat12_root_directory(fs);
+    }
     
     // Convert the name to a name that is understood on the FAT file system.
     const char *sfn = fat12_construct_short_name(name, 1);
     const char *reg = fat12_construct_standard_name_from_sfn(sfn);
     
     // Get the working directory and scan through the files for a match.
-    fat12_t fat = fs->assoc_info;
-    vfs_node_t node = fat->working_directory->first_child;
+    vfs_node_t node = directory->first_child;
     vfs_node_t first_available = NULL;
     while (node) {
         
@@ -1314,7 +1339,7 @@ vfs_node_t fat12_get_file(vfs_t fs,
     free((void *)reg);
     
     // Flush the working directory to reflect changes
-    fat12_flush(fat->working_directory);
+    fat12_flush(directory);
     
     // Return the node to the caller
     return node;
@@ -1322,18 +1347,21 @@ vfs_node_t fat12_get_file(vfs_t fs,
 
 void fat12_create_file(vfs_t fs, const char *name, enum vfs_node_attributes a)
 {
-    fat12_get_file(fs, name, 1, a);
+    vfs_node_t directory = fat12_get_directory(fs);
+    fat12_get_file(fs, directory, name, 1, a);
 }
 
 void fat12_create_dir(vfs_t fs, const char *name, enum vfs_node_attributes a)
 {
-    fat12_get_file(fs, name, 1, a | vfs_node_directory_attribute);
+    vfs_node_t directory = fat12_get_directory(fs);
+    fat12_get_file(fs, directory, name, 1, a | vfs_node_directory_attribute);
 }
 
 void fat12_remove_file(vfs_t fs, const char *name)
 {
     // Find the file that needs to be removed.
-    vfs_node_t node = fat12_get_file(fs, name, 0, 0);
+    vfs_node_t directory = fat12_get_directory(fs);
+    vfs_node_t node = fat12_get_file(fs, directory, name, 0, 0);
     if (!node) {
         return;
     }

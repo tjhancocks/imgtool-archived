@@ -50,6 +50,9 @@ struct vfs_interface {
     
     /// Gets the current working directory of the filesystem.
     vfs_node_t (*get_directory)(struct vfs *fs);
+
+    /// Locate the node with the specified name inside the specified directory.
+    vfs_node_t (*get_node)(vfs_node_t dir, const char *name);
     
     /// Create a new directory entry in the current working directory with the
     /// specified file name and attributes. This is absent any form of data.
