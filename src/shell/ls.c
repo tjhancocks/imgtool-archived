@@ -36,7 +36,13 @@ int shell_ls(shell_t shell, int argc, const char *argv[])
     }
     
     vfs_node_t node = dir_list;
-    while (node && node->state == vfs_node_used) {
+    while (node && node->state != vfs_node_unused) {
+
+        if (node->state == vfs_node_available) {
+            node = node->next_sibling;
+            continue;
+        }
+
         // Get some meta data to help with the display.
         enum vfs_node_attributes vfsa = node->attributes;
         printf("%c", vfsa & vfs_node_directory_attribute ? 'D' : '-');
