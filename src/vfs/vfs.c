@@ -105,7 +105,7 @@ void vfs_navigate_to_path(vfs_t vfs, const char *path)
     vfs_path_node_t path_node = vfs_construct_path(path);
 
     // Get the original directory
-//    vfs_node_t orig_dir = vfs->filesystem_interface->current_directory(vfs);
+    vfs_node_t orig_dir = vfs->filesystem_interface->current_directory(vfs);
 
     if (!path_node || (path_node && path_node->is_root)) {
         // Navigate to the root node.
@@ -124,7 +124,8 @@ void vfs_navigate_to_path(vfs_t vfs, const char *path)
         vfs_node_t dir = vfs->filesystem_interface->get_node(vfs, name);
 
         if (!dir || !(dir && dir->attributes & vfs_node_directory_attribute)) {
-            // Failure.
+            // Failure. Navigate back to the original directory
+            vfs->filesystem_interface->set_directory(vfs, orig_dir);
             break;
         }
 
@@ -134,18 +135,62 @@ void vfs_navigate_to_path(vfs_t vfs, const char *path)
         // Next path component
         path_node = path_node->next;
     }
+    
+    // Clean up
+    vfs_node_destroy(orig_dir);
 }
 
-void vfs_touch(vfs_t vfs, const char *name)
+void vfs_touch(vfs_t vfs, const char *path)
 {
     assert(vfs);
-    vfs->filesystem_interface->create_file(vfs, name, 0);
+    vfs->filesystem_interface->create_file(vfs, path, 0);
 }
 
-void vfs_mkdir(vfs_t vfs, const char *name)
+int vfs_mkdir(vfs_t vfs, const char *path)
 {
     assert(vfs);
-    vfs->filesystem_interface->create_dir(vfs, name, 0);
+    
+    // Get the current directory. We'll need to restore it after the command
+    // completes.
+    vfs_node_t orig_dir = vfs->filesystem_interface->current_directory(vfs);
+    
+    // Construct an actual path from the string provided. If the path starts
+    // at root, then navigate to root.
+    vfs_path_node_t path_node = vfs_construct_path(path);
+    if (path_node->is_root) {
+        vfs->filesystem_interface->set_directory(vfs, NULL);
+    }
+
+    // Step through the path. Each time we can not find the appropriate
+    // directory, create it.
+    while (path_node->next) {
+        const char *name = path_node->name;
+        vfs_node_t dir = vfs->filesystem_interface->get_node(vfs, name);
+
+        // Did we find the directory? If so was it a directory?
+        if (dir->state == vfs_node_used &&
+            (dir->attributes & vfs_node_directory_attribute) == 0)
+        {
+            vfs->filesystem_interface->set_directory(vfs, orig_dir);
+            return 0;
+        }
+
+        // If there was no returned result then simply create the node.
+        if (dir->state == vfs_node_unused || dir->state == vfs_node_available) {
+            dir = vfs->filesystem_interface->create_dir(vfs, name, 0);
+        }
+
+        // Navigate into the directory and repeat the process on the next
+        // component.
+        vfs->filesystem_interface->set_directory(vfs, dir);
+        
+        // Go to the next path component.
+        path_node = path_node->next;
+    }
+
+    vfs->filesystem_interface->create_dir(vfs, path, 0);
+    vfs->filesystem_interface->set_directory(vfs, orig_dir);
+    return 1;
 }
 
 void vfs_write(vfs_t vfs, const char *name, uint8_t *bytes, uint32_t size)
