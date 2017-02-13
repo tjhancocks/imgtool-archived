@@ -25,6 +25,7 @@
 
 #include <device/virtual.h>
 #include <vfs/interface.h>
+#include <vfs/path.h>
 
 struct vfs_directory;
 
@@ -46,6 +47,8 @@ vfs_t vfs_unmount(vfs_t vfs);
 const char *vfs_pwd(vfs_t vfs);
 
 vfs_node_t vfs_get_directory_list(vfs_t vfs);
+
+void vfs_navigate_to_path(vfs_t vfs, const char *path);
 
 void vfs_touch(vfs_t vfs, const char *name);
 void vfs_mkdir(vfs_t vfs, const char *name);

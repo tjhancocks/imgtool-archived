@@ -27,30 +27,19 @@
 
 #include <vfs/vfs.h>
 #include <vfs/node.h>
+#include <vfs/path.h>
 
 int shell_cd(shell_t shell, int argc, const char *argv[])
 {
     assert(shell);
 
-    vfs_t fs = shell->device_filesystem;
-
-    // Ignore all arguments. We don't need them.
-    vfs_node_t dir_list = vfs_get_directory_list(fs);
-    if (!dir_list) {
-        fprintf(stderr, "Unable to search directory for child.\n");
-        return SHELL_ERROR_CODE;
-    }
-    
-    // Look up the requested node in the directory. If it exists ensure it
-    // is a directory.
-    vfs_node_t node = fs->filesystem_interface->get_node(fs, argv[1]);
-    if (!node || !(node && node->attributes & vfs_node_directory_attribute)) {
-        fprintf(stderr, "Attempted to access a none directory node\n");
+    // Make sure we have the required number of arguments.
+    if (argc < 2) {
+        fprintf(stderr, "Please specify a location to navigate to.\n");
         return SHELL_ERROR_CODE;
     }
 
-    // Set the directory.
-    fs->filesystem_interface->set_directory(fs, node);
-    
+    vfs_navigate_to_path(shell->device_filesystem, argv[1]);
+
     return SHELL_OK;
 }
