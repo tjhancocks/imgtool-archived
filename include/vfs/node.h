@@ -43,24 +43,52 @@ enum vfs_node_attributes {
 };
 
 struct vfs_node {
+    // File System Related
     struct vfs *fs;
-    void *assoc_info;
-    uint8_t is_dirty;
+    
+    // Directory Tree Related
+    struct vfs_node *prev_sibling;
+    struct vfs_node *next_sibling;
+    
+    // Node Name
     const char *name;
+    
+    // Node Attribute and Calculated Characteristics
+    enum vfs_node_attributes attributes;
+    enum vfs_node_state state;
+    
+    // Node Meta Data
     uint32_t size;
     time_t creation_time;
     time_t modification_time;
     time_t access_time;
-    enum vfs_node_attributes attributes;
-    enum vfs_node_state state;
-    struct vfs_node *next;
+    
+    // Source Information
+    void *assoc_node_info;
+    
+    // Editing
+    uint8_t is_dirty:1;
+    uint8_t reserved:7;
 };
-
 typedef struct vfs_node * vfs_node_t;
 
-vfs_node_t vfs_node_init(struct vfs *fs, void *info);
+
+vfs_node_t vfs_node_init(struct vfs *fs,
+                         const char *name,
+                         enum vfs_node_attributes attributes,
+                         enum vfs_node_state state,
+                         void *node_info);
+
 void vfs_node_destroy(vfs_node_t node);
 
-vfs_node_t vfs_node_append_node(vfs_node_t head, vfs_node_t subject);
+int vfs_node_test_attribute(vfs_node_t node, enum vfs_node_attributes attr);
+void vfs_node_set_attribute(vfs_node_t node, enum vfs_node_attributes attr);
+void vfs_node_unset_attribute(vfs_node_t node, enum vfs_node_attributes attr);
+
+void vfs_node_set_size(vfs_node_t node, uint32_t size);
+
+void vfs_node_update_modification_time(vfs_node_t node);
+void vfs_node_update_access_time(vfs_node_t node);
+
 
 #endif

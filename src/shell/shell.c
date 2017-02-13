@@ -76,7 +76,7 @@ void shell_do(shell_t shell)
     while (err != SHELL_TERMINATE) {
 
         // Clear the input buffer and ensure it is clean for the next input
-        memset(buffer, 0, main_shell->buffer_size * sizeof(buffer));
+        memset(buffer, 0, main_shell->buffer_size * sizeof(*buffer));
 
         // Display the input prompt and get input from the user
         char *prompt = calloc(255, sizeof(*prompt));

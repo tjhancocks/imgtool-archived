@@ -41,7 +41,7 @@ void vfs_parse_filename(const char *file, char **name, char **ext)
     while (*file) {
         char c = *file;
 
-        // we've encountered the dot. switc to extension mode!
+        // we've encountered the dot. switch to extension mode!
         if (c == '.') {
             ptr = *ext;
             file++;
@@ -50,4 +50,62 @@ void vfs_parse_filename(const char *file, char **name, char **ext)
 
         *ptr++ = *file++;
     }
+}
+
+
+vfs_path_node_t vfs_construct_path(const char *path)
+{
+    assert(path);
+
+    // Is the path a relative or absolute one?
+    vfs_path_node_t first = NULL;
+    vfs_path_node_t last = NULL;
+    if (*path == '/') {
+        first = calloc(1, sizeof(*first));
+        first->is_root = 1;
+        last = first;
+        path++;
+    }
+
+    // Parse the path.
+    uint8_t component_count = 0;
+    uint32_t path_len = (uint32_t)strlen(path);
+    uint32_t start = 0;
+    for (uint32_t i = 0; i <= path_len; ++i) {
+
+        // We're at a path component boundary
+        if (path[i] == '/' || i == path_len) {
+
+            // Extract the text for the component
+            uint32_t length = i - start;
+            char *component = calloc(length, sizeof(*component));
+            memcpy(component, path + start, length);
+
+            vfs_path_node_t node = NULL;
+            if (component_count == 0 && first) {
+                node = first;
+            }
+            else {
+                node = calloc(1, sizeof(*node));
+                if (last) {
+                    last->next = node;
+                }
+                last = node;
+
+                if (!first) {
+                    first = node;
+                }
+            }
+
+            node->name = component;
+
+            // Reset for the next component.
+            start = i + 1;
+            component_count++;
+
+        }
+
+    }
+    
+    return first;
 }

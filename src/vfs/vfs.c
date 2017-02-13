@@ -90,13 +90,50 @@ const char *vfs_pwd(vfs_t vfs)
     }
 }
 
-struct vfs_directory *vfs_get_directory(vfs_t vfs)
+vfs_node_t vfs_get_directory_list(vfs_t vfs)
 {
     assert(vfs);
     if (vfs->assoc_info) {
-        return vfs->filesystem_interface->get_directory(vfs);
+        return vfs->filesystem_interface->get_directory_list(vfs);
     }
     return NULL;
+}
+
+void vfs_navigate_to_path(vfs_t vfs, const char *path)
+{
+    assert(vfs);
+    vfs_path_node_t path_node = vfs_construct_path(path);
+
+    // Get the original directory
+//    vfs_node_t orig_dir = vfs->filesystem_interface->current_directory(vfs);
+
+    if (!path_node || (path_node && path_node->is_root)) {
+        // Navigate to the root node.
+        vfs->filesystem_interface->set_directory(vfs, NULL);
+    }
+
+    if (!path_node) {
+        // We have nothing left to do. Finish.
+        return;
+    }
+
+    while (path_node) {
+        // Search for a node in the current directory with the name of the
+        // path node. Fail if we don't and restore the original directory.
+        const char *name = path_node->name;
+        vfs_node_t dir = vfs->filesystem_interface->get_node(vfs, name);
+
+        if (!dir || !(dir && dir->attributes & vfs_node_directory_attribute)) {
+            // Failure.
+            break;
+        }
+
+        // Set the directory to this one, and continue descending.
+        vfs->filesystem_interface->set_directory(vfs, dir);
+
+        // Next path component
+        path_node = path_node->next;
+    }
 }
 
 void vfs_touch(vfs_t vfs, const char *name)
