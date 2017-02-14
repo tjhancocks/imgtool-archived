@@ -177,6 +177,9 @@ void grub_put_stage2(grub_installation_info_t grub)
     // Try and make the directory and navigate there.
     vfs_mkdir(fs, grub->cfg.install_path);
     vfs_navigate_to_path(fs, grub->cfg.install_path);
+    
+    // Write Stage2 to the directory.
+    vfs_write(fs, "STAGE2", grub->stage2_buffer, (uint32_t)grub->stage2_size);
 }
 
 void grub_prepare_stage2(grub_installation_info_t grub)
