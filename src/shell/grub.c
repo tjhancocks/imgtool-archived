@@ -22,12 +22,21 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <common/host.h>
 #include <shell/grub.h>
 #include <shell/shell.h>
 #include <grub/install.h>
+
+static inline const char *copy_string(const char *string)
+{
+    size_t len = strlen(string);
+    char *new_string = calloc(len + 1, sizeof(*new_string));
+    memcpy(new_string, string, len);
+    return new_string;
+}
 
 int shell_grub(struct shell *shell, int argc, const char *argv[])
 {
@@ -41,6 +50,26 @@ int shell_grub(struct shell *shell, int argc, const char *argv[])
     while (optind < argc) {
         if ((c = getopt(argc, (char **)argv, "d:c:n:r:k:")) != -1) {
             switch (c) {
+                case 'd': // The destination location of the GRUB installation
+                    cfg.install_path = copy_string(optarg);
+                    break;
+                    
+                case 'c': // The path of the GRUB configuration file
+                    cfg.configuration_path = copy_string(optarg);
+                    break;
+                    
+                case 'n': // The name of the OS to list in the GRUB menu
+                    cfg.os_name = copy_string(optarg);
+                    break;
+                    
+                case 'r': // The root of the OS Boot volume
+                    cfg.root_name = copy_string(optarg);
+                    break;
+                    
+                case 'k': // The location of the kernel
+                    cfg.kernel_path = copy_string(optarg);
+                    break;
+                    
                 default:
                     break;
             }
