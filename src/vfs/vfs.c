@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include <vfs/vfs.h>
 #include <vfs/interface.h>
 
@@ -112,7 +113,7 @@ void vfs_navigate_to_path(vfs_t vfs, const char *path)
         vfs->filesystem_interface->set_directory(vfs, NULL);
     }
 
-    if (!path_node) {
+    if (!path_node || strlen(path_node->name) == 0) {
         // We have nothing left to do. Finish.
         return;
     }
@@ -163,7 +164,7 @@ int vfs_mkdir(vfs_t vfs, const char *path)
 
     // Step through the path. Each time we can not find the appropriate
     // directory, create it.
-    while (path_node->next) {
+    while (path_node) {
         const char *name = path_node->name;
         vfs_node_t dir = vfs->filesystem_interface->get_node(vfs, name);
 
@@ -188,7 +189,6 @@ int vfs_mkdir(vfs_t vfs, const char *path)
         path_node = path_node->next;
     }
 
-    vfs->filesystem_interface->create_dir(vfs, path, 0);
     vfs->filesystem_interface->set_directory(vfs, orig_dir);
     return 1;
 }
