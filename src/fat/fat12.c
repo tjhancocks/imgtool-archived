@@ -618,9 +618,9 @@ void fat12_fat_table_set_entry(vfs_t fs, uint32_t entry, uint16_t value)
     }
     else {
         // second...
-        fat->fat_data[off+2] = value & 0xff;
+        fat->fat_data[off+2] = (value >> 4) & 0xff;
         fat->fat_data[off+1] = (fat->fat_data[off+1] & 0x0F);
-        fat->fat_data[off+1] |= ((value >> 4) & 0xF0);
+        fat->fat_data[off+1] |= ((value << 4) & 0xF0);
     }
 }
 
@@ -631,7 +631,8 @@ uint32_t fat12_cluster_count_for_size(vfs_t fs, uint32_t n)
 {
     assert(fs);
     fat12_t fat = fs->assoc_info;
-    uint32_t sectors = n / fat->bpb->bytes_per_sector;
+    fat12_bpb_t bpb = fat->bpb;
+    uint32_t sectors = (n + (bpb->bytes_per_sector-1)) / bpb->bytes_per_sector;
     return sectors / fat->bpb->sectors_per_cluster;
 }
 
@@ -1074,7 +1075,8 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     for (uint32_t i = 0; i < clusters; ++i) {
         uint32_t data_offset = i * cluster_size;
         uint32_t data_len = MIN(cluster_size, n - data_offset);
-        fat12_write_cluster_data(fs, cluster, data + data_offset, data_len);
+        uintptr_t ptr = (uintptr_t)data + (uintptr_t)data_offset;
+        fat12_write_cluster_data(fs, cluster, (void *)ptr, data_len);
         cluster = fat12_next_cluster(fs, cluster);
     }
     
