@@ -211,3 +211,93 @@ void vfs_remove(vfs_t vfs, const char *name)
     assert(vfs);
     vfs->filesystem_interface->remove(vfs, name);
 }
+
+vfs_node_t vfs_get_file(vfs_t vfs, const char *path)
+{
+    assert(vfs);
+
+    // Get the current directory. We'll need to restore it after the command
+    // completes.
+    vfs_node_t orig_dir = vfs->filesystem_interface->current_directory(vfs);
+
+    // Construct an actual path from the string provided. If the path starts
+    // at root, then navigate to root.
+    vfs_path_node_t path_node = vfs_construct_path(path);
+    if (path_node->is_root) {
+        vfs->filesystem_interface->set_directory(vfs, NULL);
+    }
+
+    // Step through the path. Each time we can not find the appropriate
+    // directory, create it.
+    while (path_node) {
+        const char *name = path_node->name;
+        vfs_node_t node = vfs->filesystem_interface->get_node(vfs, name);
+
+        // Do we have a node? If not abort.
+        if (!node) {
+            vfs->filesystem_interface->set_directory(vfs, orig_dir);
+            return NULL;
+        }
+
+        // Is this the last path_node? Is the directory attribute set?
+        if (!path_node->next) {
+            if (node->attributes & vfs_node_directory_attribute) {
+                // Can't return a dictory here.
+                vfs->filesystem_interface->set_directory(vfs, orig_dir);
+                return NULL;
+            }
+            else {
+                // We have our candidate!
+                return node;
+            }
+        }
+
+        // We need to navigate into the node. Ensure it's a directory, otherwise
+        // fail.
+        if ((node->attributes & vfs_node_directory_attribute) == 0) {
+            vfs->filesystem_interface->set_directory(vfs, orig_dir);
+            return NULL;
+        }
+
+        // Navigate into the directory and repeat the process on the next
+        // component.
+        vfs->filesystem_interface->set_directory(vfs, node);
+
+        // Go to the next path component.
+        path_node = path_node->next;
+    }
+
+    // If we get here, everything wen't wrong!
+    return NULL;
+}
+
+uint32_t vfs_sector_count_of(vfs_t vfs, const char *path)
+{
+    assert(vfs);
+
+    // Get the file. If there is no file return UINT32_MAX to denote no file.
+    vfs_node_t file = vfs_get_file(vfs, path);
+    if (!file) {
+        return 0;
+    }
+
+    return file->sector_count;
+}
+
+uint32_t vfs_nth_sector_of(vfs_t vfs, uint32_t n, const char *path)
+{
+    assert(vfs);
+
+    // Get the file. If there is no file return UINT32_MAX to denote no file.
+    vfs_node_t file = vfs_get_file(vfs, path);
+    if (!file) {
+        return UINT32_MAX;
+    }
+
+    // Make sure that we have requested a valid sector number.
+    if (n >= file->sector_count) {
+        return UINT32_MAX;
+    }
+
+    return file->sectors[n];
+}
