@@ -633,7 +633,7 @@ uint32_t fat12_cluster_count_for_size(vfs_t fs, uint32_t n)
     fat12_t fat = fs->assoc_info;
     fat12_bpb_t bpb = fat->bpb;
     uint32_t sectors = (n + (bpb->bytes_per_sector-1)) / bpb->bytes_per_sector;
-    return sectors / fat->bpb->sectors_per_cluster;
+    return MAX(sectors / fat->bpb->sectors_per_cluster, 1);
 }
 
 uint16_t fat12_first_available_cluster(vfs_t fs)
@@ -1034,6 +1034,38 @@ uint16_t fat12_reallocate_cluster_chain(vfs_t fs, uint16_t cluster, uint32_t n)
     return start_cluster;
 }
 
+uint32_t *fat12_sectors_in_cluster_chain(vfs_t fs,
+                                         uint32_t cluster,
+                                         uint32_t *count)
+{
+    assert(fs);
+    assert(count);
+
+    fat12_t fat = fs->assoc_info;
+    fat12_bpb_t bpb = fat->bpb;
+
+    // Generate a block to hold all the sector numbers
+    uint32_t sectors_per_cluster = bpb->sectors_per_cluster;
+    uint32_t *sectors = calloc(*count * sectors_per_cluster, sizeof(*sectors));
+
+    // Step through each of the clusters and add there sectors to the list
+    uint32_t i = 0;
+    while (cluster != fat12_cluster_ref_eof) {
+        // Handle the scenario where muliple sectors make up a single cluster.
+        uint32_t root_sector = fat12_sector_for_cluster(fs, cluster);
+        for (uint8_t j = 0; j < sectors_per_cluster; ++j) {
+            sectors[i++] = root_sector + j;
+        }
+
+        // Get the next cluster
+        cluster = fat12_next_cluster(fs, cluster);
+    }
+
+    // Recalculate the count. This should now hold the number of sectors.
+    *sectors *= sectors_per_cluster;
+    return sectors;
+}
+
 void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
 {
     assert(fs);
@@ -1067,6 +1099,12 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
                                                         sfn->first_cluster,
                                                         clusters);
+
+    // Generate a list of sectors for the file.
+    node->sector_count = clusters;
+    node->sectors = fat12_sectors_in_cluster_chain(fs,
+                                                   sfn->first_cluster,
+                                                   &node->sector_count);
     
     // We're now ready to begin writing out clusters. We need to work out the
     // size of a cluster in bytes and step through the data buffer, passing it
@@ -1221,6 +1259,12 @@ void fat12_create_file_node(vfs_node_t node,
     node->creation_time = fat12_date_time_to_posix(sfn->cdate, sfn->ctime);
     node->modification_time = fat12_date_time_to_posix(sfn->mdate, sfn->mtime);
     node->access_time = fat12_date_time_to_posix(sfn->adate, 0);
+
+    // Generate a list of sectors for the file.
+    node->sector_count = fat12_cluster_count_for_size(node->fs, size);
+    node->sectors = fat12_sectors_in_cluster_chain(node->fs,
+                                                   sfn->first_cluster,
+                                                   &node->sector_count);
     
     // The final task is to extract the regular filename from the SFN.
     free((void *)node->name);

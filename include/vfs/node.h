@@ -65,6 +65,10 @@ struct vfs_node {
     
     // Source Information
     void *assoc_info;
+
+    // Helper Information
+    uint32_t sector_count;
+    uint32_t *sectors;
     
     // Editing
     uint8_t is_dirty:1;
