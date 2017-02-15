@@ -25,36 +25,52 @@
 
 struct vfs;
 
+#define SECTOR_SIZE                     0x200
+#define GRUB_STAGE_1_FILE               "stage1"
+#define GRUB_STAGE_2_FILE               "stage2"
+
 // The GRUB compatibility version information. This will be used to work out
 // if the supplied GRUB binaries are compatible with what this tool will do.
-#define GRUB_COMPAT_VERSION_MAJOR           3
-#define GRUB_COMPAT_VERSION_MINOR           2
-
+#define COMPAT_VERSION_MAJOR            3
+#define COMPAT_VERSION_MINOR            2
+#define COMPAT_VERSION                  ((COMPAT_VERSION_MINOR << 8) \
+                                        | COMPAT_VERSION_MAJOR)
 
 // The following are a series of offsets in STAGE1. These instruct the tool on
 // where to look for and where to place information whilst installing GRUB.
-#define GRUB_STAGE1_VERS_OFFS               0x3e
-#define GRUB_STAGE1_BOOT_DRIVE              0x40
-#define GRUB_STAGE1_FORCE_LBA               0x41
-#define GRUB_STAGE1_STAGE2_ADDRESS          0x42
-#define GRUB_STAGE1_STAGE2_SECTOR           0x44
-#define GRUB_STAGE1_STAGE2_SEGMENT          0x48
-#define GRUB_STAGE1_BOOT_DRIVE_CHK          0x4b
+#define STAGE1_BPB_START                0x03
+#define STAGE1_BPB_END                  0x3e
+#define STAGE1_BPB_LEN                  (STAGE1_BPB_END - STAGE1_BPB_START)
+#define STAGE1_VERS_OFFS                0x3e
+#define STAGE1_BOOT_DRIVE               0x40
+#define STAGE1_FORCE_LBA                0x41
+#define STAGE1_STAGE2_ADDRESS           0x42
+#define STAGE1_STAGE2_SECTOR            0x44
+#define STAGE1_STAGE2_SEGMENT           0x48
+#define STAGE1_BOOT_DRIVE_MASK          0x4d
+#define STAGE1_WINDOWS_NT_MAGIC         0x1b8
+#define STAGE1_PART_START               0x1be
+#define STAGE1_PART_END                 0x1fe
+#define BOOTSEC_SIG_OFFSET              0x1fe
+#define BOOT_SIGNATURE                  0xaa55
 
 // The next group are a series of offsets in STAGE2.
-#define GRUB_STAGE2_VERS_OFFS               0x206
-#define GRUB_STAGE2_INSTALLPART             0x208
-#define GRUB_STAGE2_SAVED_ENT               0x20c
-#define GRUB_STAGE2_ID                      0x210
-#define GRUB_STAGE2_FORCE_LBA               0x211
-#define GRUB_STAGE2_VERS_STR                0x212
+#define STAGE2_VERS_OFFS                0x206
+#define STAGE2_INSTALLPART              0x208
+#define STAGE2_SAVED_ENT                0x20c
+#define STAGE2_ID                       0x210
+#define STAGE2_FORCE_LBA                0x211
+#define STAGE2_VERS_STR                 0x212
 
 // GRUB Binary Identifiers
-#define GRUB_ID_STAGE2                      0
+#define GRUB_ID_STAGE2                  0
 
-
-#define GRUB_ERROR                          0x00
-#define GRUB_OK                             0x01
+#define GRUB_INCOMPATIBLE_ERROR         0x05
+#define GRUB_FILE_ERROR                 0x04
+#define GRUB_WONT_FIT_ERROR             0x03
+#define GRUB_MEMORY_ALIGN_ERROR         0x02
+#define GRUB_ERROR                      0x01
+#define GRUB_OK                         0x00
 
 struct grub_configuration {
     const char *source_path;
@@ -69,12 +85,29 @@ struct grub_installation_info {
     struct grub_configuration cfg;
     struct vfs *fs;
 
-    size_t stage1_size;
-    uint8_t *stage1_buffer;
-    size_t stage2_size;
-    uint8_t *stage2_buffer;
+    // GRUB Sources Information
+    const char *stage2_os_file;
+    const char *stage1_os_file;
+    const char *stage2_file;
+    const char *stage1_file;
+    const char *config_file_location;
 
-    uint32_t installaddr;
+    // GRUB Buffers
+    size_t stage1_size;
+    unsigned char *stage1_buffer;
+    size_t stage2_size;
+    unsigned char *stage2_buffer;
+    unsigned int stage2_first_sector;
+    unsigned int stage2_second_sector;
+
+    // Configuration Options
+    unsigned int installaddr;
+    unsigned int installlist;
+    int is_stage_1_5;
+    int is_open;
+    int is_force_lba;
+    int last_length;
+    int saved_sector;
 };
 typedef struct grub_installation_info *grub_installation_info_t;
 
