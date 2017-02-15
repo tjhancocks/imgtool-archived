@@ -58,4 +58,7 @@ uint32_t vfs_read(vfs_t vfs, const char *name, uint8_t **bytes);
 
 void vfs_remove(vfs_t vfs, const char *name);
 
+uint32_t vfs_sector_count_of(vfs_t vfs, const char *path);
+uint32_t vfs_nth_sector_of(vfs_t vfs, uint32_t n, const char *path);
+
 #endif /* vfs_h */
