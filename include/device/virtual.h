@@ -26,7 +26,7 @@
 #include <stdio.h>
 
 enum vmedia_type {
-    vmedia_floppy = 0x00,
+    vmedia_floppy = 0xFF,
     vmedia_hard_disk = 0x80,
 };
 
