@@ -31,6 +31,9 @@
 #include <shell/shell.h>
 #include <common/host.h>
 
+#define IMGTOOL_VERSION_STRING  "imgtool version 0.1\n" \
+                                "(c) Tom Hancocks, 2017\n" \
+                                "Includes drivers: fat12\n"
 
 #pragma mark - Environment Variables
 
@@ -108,7 +111,7 @@ int main(int argc, const char * argv[], const char *env[])
     const char *script_path = NULL;
     const char *image_path = NULL;
     int c = 0;
-    while ((c = getopt(argc, (char **)argv, "s:o:")) != -1) {
+    while ((c = getopt(argc, (char **)argv, "s:o:v")) != -1) {
         switch (c) {
             case 's': // User specified script
                 script_path = host_expand_path(optarg);
@@ -116,6 +119,10 @@ int main(int argc, const char * argv[], const char *env[])
 
             case 'o': // User specified image
                 image_path = host_expand_path(optarg);
+                break;
+
+            case 'v': // Display the version
+                printf("%s\n", IMGTOOL_VERSION_STRING);
                 break;
 
             default:

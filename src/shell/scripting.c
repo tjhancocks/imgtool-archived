@@ -156,7 +156,7 @@ void shell_script_destroy(shell_script_t script)
 
 #pragma mark - Shell Script Execution
 
-void shell_script_execute(shell_t shell, shell_script_t script)
+int shell_script_execute(shell_t shell, shell_script_t script)
 {
     assert(shell);
     assert(script);
@@ -164,9 +164,14 @@ void shell_script_execute(shell_t shell, shell_script_t script)
     shell_statement_t stmt = script->first;
     while (stmt) {
         shell_statement_resolve(shell, stmt);
-        shell_statement_execute(shell, stmt);
+        int err = shell_statement_execute(shell, stmt);
+        if (err != SHELL_OK) {
+            return err;
+        }
         stmt = stmt->next;
     }
+
+    return SHELL_OK;
 }
 
 void shell_statement_resolve(shell_t shell, shell_statement_t stmt)

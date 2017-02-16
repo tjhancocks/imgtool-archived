@@ -58,7 +58,7 @@ void shell_statement_destroy(shell_statement_t statement);
 shell_script_t shell_script_open(const char *path);
 void shell_script_destroy(shell_script_t script);
 
-void shell_script_execute(struct shell *shell, shell_script_t script);
+int shell_script_execute(struct shell *shell, shell_script_t script);
 void shell_statement_resolve(struct shell *shell, shell_statement_t stmt);
 int shell_statement_execute(struct shell *shell, shell_statement_t stmt);
 

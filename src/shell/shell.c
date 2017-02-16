@@ -63,16 +63,16 @@ shell_t shell_init(shell_variable_t vars,
 void shell_do(shell_t shell)
 {
     assert(shell);
+    int err = 0;
 
     // If there is a script to run then we should run it before launching the
     // user prompt shell.
     if (shell->script) {
-        shell_script_execute(shell, shell->script);
+        err = shell_script_execute(shell, shell->script);
     }
 
     // Start the shell run loop
     char *buffer = malloc(main_shell->buffer_size * sizeof(*buffer));
-    int err = 0;
     while (err != SHELL_TERMINATE) {
 
         // Clear the input buffer and ensure it is clean for the next input
