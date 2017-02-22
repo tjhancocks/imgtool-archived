@@ -40,6 +40,7 @@
 #include <shell/rm.h>
 #include <shell/read.h>
 #include <shell/export.h>
+#include <shell/grub.h>
 #include <shell/cd.h>
 
 void shell_register_commands(shell_t shell)
@@ -63,6 +64,7 @@ void shell_register_commands(shell_t shell)
     shell_add_command(shell, shell_command_create("detach", shell_detach));
     shell_add_command(shell, shell_command_create("init", shell_init_dev));
     shell_add_command(shell, shell_command_create("rm", shell_rm));
+    shell_add_command(shell, shell_command_create("grub", shell_grub));
     shell_add_command(shell, shell_command_create("cd", shell_cd));
 }
 
