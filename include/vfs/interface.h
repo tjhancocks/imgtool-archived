@@ -34,8 +34,15 @@ struct vfs_interface {
     const char *(*type_name)();
     
     /// Invokes a formatting of the device as the specified filesystem. A volume
-    /// label and custom bootcode can be provided.
-    void (*format_device)(vdevice_t dev, const char *name, uint8_t *bootcode);
+    /// label and custom bootcode can be provided, as well as the number of
+    /// additional sectors to reserve on top of the bootsector.
+    void (*format_device)(
+        vdevice_t dev, 
+        const char *name, 
+        uint8_t *bootsector,
+        uint8_t *reserved_data,
+        uint16_t additional_reserved_sectors
+    );
     
     /// Mounts the filesystem in question. This action may vary from filesystem
     /// to filesystem, but will generally load all root directory metadata.

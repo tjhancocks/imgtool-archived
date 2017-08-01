@@ -78,7 +78,13 @@ const char *fat12_name();
 void *fat12_mount(vfs_t fs);
 void fat12_unmount(vfs_t fs);
 
-void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode);
+void fat12_format_device(
+    vdevice_t dev, 
+    const char *label, 
+    uint8_t *bootcode,
+    uint8_t *reserved_data,
+    uint16_t additional_reserved_sectors
+);
 
 vfs_node_t fat12_current_directory(vfs_t fs);
 vfs_node_t fat12_get_directory_list(vfs_t fs);
@@ -322,42 +328,61 @@ void fat12_copy_padded_string(char *dst,
 }
 
 
-void fat12_format_device(vdevice_t dev, const char *label, uint8_t *bootcode)
-{
+void fat12_format_device(
+    vdevice_t dev, 
+    const char *label, 
+    uint8_t *bootsector,
+    uint8_t *reserved_data,
+    uint16_t additional_reserved_sectors
+) {
     // FAT12 Constants Required in the boot sector.
     uint8_t jmp[3] = {0xEB, 0x3C, 0x90};
     const char *oem = "MSWIN4.1";
+    const char *system_id = "FAT12";
 
     // Create a new BIOS Parameter Block and populate it.
     fat12_bpb_t bpb = calloc(1, sizeof(*bpb));
     fat12_copy_padded_string((char *)bpb->jmp, jmp, 3, 0x00, 3);
     fat12_copy_padded_string((char *)bpb->oem, oem, 8, ' ', 8);
     fat12_copy_padded_string((char *)bpb->label, label, 11, ' ', 11);
+    fat12_copy_padded_string((char *)bpb->system_id, system_id, 8, ' ', 8);
 
-    if (bootcode) {
-        memcpy(bpb->boot_code, bootcode, sizeof(bpb->boot_code));
+    // If the boot sector has been provided, then carve out the code
+    // portion of it.
+    if (bootsector) {
+        memcpy(bpb->boot_code, bootsector + 62, sizeof(bpb->boot_code));
     }
 
     bpb->bytes_per_sector = dev->sector_size;
     bpb->sectors_per_cluster = 1;
-    bpb->reserved_sectors = 1;
+    bpb->reserved_sectors = 1 + additional_reserved_sectors;
     bpb->table_count = 2;
     bpb->directory_entries = 224;
     bpb->total_sectors_16 = device_total_sectors(dev);
-    bpb->media_type = 0xF0; // 3.5-inch, 2-sided 9-sector
+    bpb->media_type = 0xF8;
     bpb->sectors_per_fat = 9; // This is the value for the above type of media.
     bpb->sectors_per_track = 18; // Again the value for the above type of media.
     bpb->heads = 2; // And again...
     bpb->hidden_sectors = 0;
     bpb->total_sectors_32 = 0; // Unused in FAT12
     bpb->drive = (uint8_t)dev->media;
-    bpb->nt_reserved = 0;
-    bpb->signature = 0x28;
-    bpb->volume_id = arc4random_uniform(0xFFFFFFFF);
+    bpb->nt_reserved = 1;
+    bpb->signature = 0x29;
+    bpb->volume_id = 77;//arc4random_uniform(0xFFFFFFFF);
     bpb->boot_signature = 0xAA55;
 
     // We now need to write the boot sector out to the device.
     device_write_sector(dev, 0, (uint8_t *)bpb);
+
+    // If there are reserved sectors, then write those sectors.
+    if (additional_reserved_sectors > 0) {
+        device_write_sectors(
+            dev, 
+            1,
+            additional_reserved_sectors,
+            (uint8_t *)reserved_data
+        );
+    }
 
     // And clean up!
     free(bpb);
