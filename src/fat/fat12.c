@@ -359,7 +359,10 @@ void fat12_format_device(
     bpb->table_count = 2;
     bpb->directory_entries = 224;
     bpb->total_sectors_16 = device_total_sectors(dev);
-    bpb->media_type = 0xF8;
+
+    // TODO: This needs to be fixed and updated to use the correct media type
+    bpb->media_type = dev->media == vmedia_floppy ? 0xF0 : 0xF8;
+    
     bpb->sectors_per_fat = 9; // This is the value for the above type of media.
     bpb->sectors_per_track = 18; // Again the value for the above type of media.
     bpb->heads = 2; // And again...
