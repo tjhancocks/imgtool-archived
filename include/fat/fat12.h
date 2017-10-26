@@ -22,6 +22,8 @@
 
 #include <vfs/interface.h>
 #include <device/virtual.h>
+#include <fat/fat-common.h>
+#include <fat/fat12-structures.h>
 
 #ifndef FAT12
 #define FAT12

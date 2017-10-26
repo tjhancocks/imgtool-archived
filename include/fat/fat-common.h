@@ -21,42 +21,31 @@
 */
 
 #include <stdint.h>
-#include <fat/fat-common.h>
 
-#ifndef FAT12_STRUCTURES
-#define FAT12_STRUCTURES
+#ifndef FAT_COMMON
+#define FAT_COMMON
 
-struct fat12_bpb {
-	uint8_t jmp[3];
-	uint8_t oem[8];
-	uint16_t bytes_per_sector;
-	uint8_t sectors_per_cluster;
-	uint16_t reserved_sectors;
-	uint8_t table_count;
-	uint16_t directory_entries;
-	uint16_t total_sectors_16;
-	uint8_t media_type;
-	uint16_t sectors_per_fat;
-	uint16_t sectors_per_track;
-	uint16_t heads;
-	uint32_t hidden_sectors;
-	uint32_t total_sectors_32;
-	uint8_t drive;
+struct fat_sfn {
+	uint8_t name[11];
+	uint8_t attribute;
 	uint8_t nt_reserved;
-	uint8_t signature;
-	uint32_t volume_id;
-	uint8_t label[11];
-	uint8_t system_id[8];
-	uint8_t boot_code[448];
-	uint16_t boot_signature;
+	uint8_t ctime_ms;
+	uint16_t ctime;
+	uint16_t cdate;
+	uint16_t adate;
+	uint16_t unused;
+	uint16_t mtime;
+	uint16_t mdate;
+	uint16_t first_cluster;
+	uint32_t size;
 } __attribute__((packed));
-typedef struct fat12_bpb * fat12_bpb_t;
+typedef struct fat_sfn * fat_sfn_t;
 
-struct fat12 {
-	fat12_bpb_t bpb;
-	uint8_t *fat_data;
-	struct fat_directory_buffer current_dir;
+struct fat_directory_buffer {
+	struct fat_sfn sfn;
+	uint32_t index;
+	struct vfs_node *first_child;
+	struct vfs_node *last_child;
 };
-typedef struct fat12 * fat12_t;
 
 #endif

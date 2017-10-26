@@ -25,9 +25,7 @@
 #include <string.h>
 #include <time.h>
 
-
 #include <fat/fat12.h>
-#include <fat/fat12-structures.h>
 
 #include <vfs/vfs.h>
 #include <vfs/node.h>
@@ -756,7 +754,7 @@ void fat12_destroy_working_directory(fat12_t fat)
 uint32_t fat12_directory_starting_cluster(vfs_node_t directory)
 {
     if (directory) {
-        fat12_sfn_t sfn = directory->assoc_info;
+        fat_sfn_t sfn = directory->assoc_info;
         return sfn->first_cluster;
     }
 
@@ -768,7 +766,7 @@ uint32_t fat12_directory_starting_sector(vfs_t fs, vfs_node_t directory)
     fat12_t fat = fs->assoc_info;
 
     if (directory) {
-        fat12_sfn_t sfn = directory->assoc_info;
+        fat_sfn_t sfn = directory->assoc_info;
         return fat12_sector_for_cluster(fs, sfn->first_cluster);
     }
 
@@ -807,9 +805,9 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
     assert(sfni < bpb->directory_entries);
     
     // Extract the relavent directory entry.
-    uintptr_t ptr = (uintptr_t)dir_data + (sfni * sizeof(struct fat12_sfn));
+    uintptr_t ptr = (uintptr_t)dir_data + (sfni * sizeof(struct fat_sfn));
     
-    fat12_sfn_t sfn = calloc(1, sizeof(*sfn));
+    fat_sfn_t sfn = calloc(1, sizeof(*sfn));
     memcpy(sfn, (void *)ptr, sizeof(*sfn));
     
     const char *sfn_name = (const char *)sfn->name;
@@ -831,9 +829,9 @@ vfs_node_t fat12_construct_node_for_sfn(vfs_t fs, void *dir_data, uint32_t sfni)
     return node;
 }
 
-fat12_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
+fat_sfn_t fat12_commit_node_changes_to_sfn(vfs_node_t node)
 {
-    fat12_sfn_t sfn = node->assoc_info;
+    fat_sfn_t sfn = node->assoc_info;
     
     if (node->is_dirty) {
         sfn->attribute = fat12_translate_from_vfs_attributes(node->attributes);
@@ -879,7 +877,7 @@ void fat12_load_directory(vfs_t fs, vfs_node_t directory)
     if (directory) {
         memcpy(&fat->current_dir.sfn,
                directory->assoc_info,
-               sizeof(struct fat12_sfn));
+               sizeof(struct fat_sfn));
     }
 
     // Clean up the previous directory, this will destroy the node for the
@@ -933,12 +931,12 @@ void fat12_flush_directory(vfs_t fs)
     uint32_t offset = 0;
     while (node) {
         // Get the SFN back for the node
-        fat12_sfn_t sfn = fat12_commit_node_changes_to_sfn(node);
+        fat_sfn_t sfn = fat12_commit_node_changes_to_sfn(node);
 
         // Copy the SFN out to the buffer in preparation for flushing the
         // directory.
-        memcpy(buffer + offset, sfn, sizeof(struct fat12_sfn));
-        offset += sizeof(struct fat12_sfn);
+        memcpy(buffer + offset, sfn, sizeof(struct fat_sfn));
+        offset += sizeof(struct fat_sfn);
         node = node->next_sibling;
     }
 
@@ -1117,7 +1115,7 @@ void fat12_file_write(vfs_t fs, const char *filename, void *data, uint32_t n)
     // Get the actual directory entry for the file as it will contain useful
     // information. Mark the node as dirty so that we actually flush any
     // changes.
-    fat12_sfn_t sfn = node->assoc_info;
+    fat_sfn_t sfn = node->assoc_info;
     node->is_dirty = 1;
     node->size = n;
     vfs_node_update_modification_time(node);
@@ -1194,7 +1192,7 @@ uint32_t fat12_file_read(vfs_t fs, const char *name, void **data)
     // information.
     fat12_t fat = fs->assoc_info;
     fat12_bpb_t bpb = fat->bpb;
-    fat12_sfn_t sfn = node->assoc_info;
+    fat_sfn_t sfn = node->assoc_info;
     
     // We now need to allocate enough space for the data to reside.
     *data = calloc(node->size, sizeof(uint8_t));
@@ -1218,10 +1216,10 @@ uint32_t fat12_file_read(vfs_t fs, const char *name, void **data)
 
 #pragma mark - Directory Entries (File Support)
 
-fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
-                                const char *filename,
-                                uint32_t size,
-                                uint8_t attributes)
+fat_sfn_t fat12_dir_entry_new(vfs_t fs,
+                              const char *filename,
+                              uint32_t size,
+                              uint8_t attributes)
 {
     assert(fs);
     
@@ -1246,7 +1244,7 @@ fat12_sfn_t fat12_dir_entry_new(vfs_t fs,
     const char *sfn_name = fat12_construct_short_name(filename, 1);
     
     // Begin constructing the directory entry.
-    fat12_sfn_t sfn = calloc(1, sizeof(*sfn));
+    fat_sfn_t sfn = calloc(1, sizeof(*sfn));
     fat12_copy_padded_string((char *)sfn->name, sfn_name, 11, ' ', 11);
     free((void *)sfn_name);
     sfn->attribute = attributes;
@@ -1278,7 +1276,7 @@ void fat12_create_file_node(vfs_node_t node,
     uint8_t fat_attr = fat12_translate_from_vfs_attributes(attributes);
 
     // Construct the directory entry first, add it to the node and mark it dirty
-    fat12_sfn_t sfn = fat12_dir_entry_new(node->fs, filename, size, fat_attr);
+    fat_sfn_t sfn = fat12_dir_entry_new(node->fs, filename, size, fat_attr);
     node->assoc_info = sfn;
     node->is_dirty = 1;
     node->size = size;
@@ -1319,7 +1317,7 @@ void fat12_create_directory_node(vfs_node_t node,
     
     // Construct the actual node for the directory.
     fat12_create_file_node(node, filename, size, attributes);
-    fat12_sfn_t sfn = node->assoc_info;
+    fat_sfn_t sfn = node->assoc_info;
     node->size = 0;
     node->is_dirty = 1;
     
@@ -1328,7 +1326,7 @@ void fat12_create_directory_node(vfs_node_t node,
     // a directory.
     uint32_t data_len = bpb->sectors_per_cluster * bpb->bytes_per_sector;
     uint8_t *data = calloc(data_len, sizeof(*data));
-    fat12_sfn_t entries = (fat12_sfn_t)data;
+    fat_sfn_t entries = (fat_sfn_t)data;
     
     // First entry is `.`
     fat12_copy_padded_string((char *)entries[0].name, ".", 1, ' ', 11);
@@ -1454,7 +1452,7 @@ void fat12_remove_file(vfs_t fs, const char *name)
     
     // We also need to destroy the cluster chain and mark everything as
     // available.
-    fat12_sfn_t sfn = node->assoc_info;
+    fat_sfn_t sfn = node->assoc_info;
     sfn->first_cluster = fat12_reallocate_cluster_chain(fs,
                                                         sfn->first_cluster,
                                                         0);

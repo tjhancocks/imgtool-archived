@@ -23,10 +23,10 @@
 #include <stdint.h>
 #include <fat/fat-common.h>
 
-#ifndef FAT12_STRUCTURES
-#define FAT12_STRUCTURES
+#ifndef FAT32_STRUCTURES
+#define FAT32_STRUCTURES
 
-struct fat12_bpb {
+struct fat32_extended_bpb {
 	uint8_t jmp[3];
 	uint8_t oem[8];
 	uint16_t bytes_per_sector;
@@ -47,16 +47,16 @@ struct fat12_bpb {
 	uint32_t volume_id;
 	uint8_t label[11];
 	uint8_t system_id[8];
-	uint8_t boot_code[448];
+	// ...additions here...
 	uint16_t boot_signature;
 } __attribute__((packed));
-typedef struct fat12_bpb * fat12_bpb_t;
+typedef struct fat32_extended_bpb * fat32_extended_bpb_t;
 
-struct fat12 {
-	fat12_bpb_t bpb;
+struct fat32 {
+	fat32_extended_bpb_t ebpb;
 	uint8_t *fat_data;
 	struct fat_directory_buffer current_dir;
 };
-typedef struct fat12 * fat12_t;
+typedef struct fat32 * fat32_t;
 
 #endif
