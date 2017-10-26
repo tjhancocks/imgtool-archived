@@ -1,4 +1,4 @@
-#imgtool
+# imgtool
 
 ![Basic VFS Support](https://img.shields.io/badge/VFS-Basic-green.svg)
 ![Basic FAT12 Support](https://img.shields.io/badge/FAT12-Basic-green.svg)
@@ -10,7 +10,7 @@
 
 A simple tool for working with disk images and performing changes to them in a sandboxed environment.
 
-###Purpose
+### Purpose
 The original purpose of this tool is for my own OS Development work. Assembling
 disk images during a build of the OS/Kernel can be a tedious if not painful task sometimes. Setting up a file system, device loops, GRUB installation, etc. It can get a bit tedious and isn't guarnteed to work between different host environments. For example, GRUB is unsupported on macOS even though a few tools exist for it in the likes of homebrew.
 
@@ -18,12 +18,12 @@ Further to that on macOS if you so much as mount it in the system then you'll en
 
 All of this is a bit of pain. I want something relatively simple to use to get the job done.
 
-###"Virtual" Virtual File System
+### "Virtual" Virtual File System
 So how is this solved? The answer is a custom disk editing tool that runs its own virtual file system and concrete file system drivers. This keeps it entirely seperate from the host file system.
 
 The added bonus here is that the concrete file system drivers will hopefully be useful inside the OS/Kernel this is being made to support.
 
-###The Current State
+### The Current State
 This tool is far from done. A foundation has been laid, but the rest of the thing needs building. Below is a list of features that I have planned for this.
 
 - [x] Basic shell for interacting with the disk image
@@ -36,7 +36,7 @@ This tool is far from done. A foundation has been laid, but the rest of the thin
 - [ ] Concrete EXT2 Driver
 - [ ] `grub install` functionality for GRUB Legacy.
 
-###License
+### License
 Copyright (c) 2017 Tom Hancocks
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
